@@ -1,6 +1,6 @@
 export interface DataPoint {
   date: string;
-  [key: string]: string | number; // allows actualHours, predictedHours, etc.
+  [key: string]: string | number; 
 }
 
 export interface YAxisKey {
@@ -11,7 +11,7 @@ export interface YAxisKey {
 
 export interface ChartData {
   dataPoints: DataPoint[];
-  xAxisKey: keyof DataPoint; // ensures valid property of DataPoint
+  xAxisKey: keyof DataPoint; 
   yAxisKeys: YAxisKey[];
   yAxisUnit: string;
 }
@@ -19,8 +19,8 @@ export interface ChartData {
 export interface ChartCardProps {
   title: string;
   subtitle?: string;
-  data: ChartData | null; // null = loading/error state
+  data: ChartData | null;
   isLoading?: boolean;
   error?: string;
-  type?: "line" | "bar"; // flexibility for future
+  type?: "line" | "bar";
 }

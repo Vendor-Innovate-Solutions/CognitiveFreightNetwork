@@ -22,19 +22,28 @@ interface Props {
   error?: string;
 }
 
-export default function LineChart({ title, subtitle, data, isLoading, error }: Props) {
+export default function LineChart({
+  title,
+  subtitle,
+  data,
+  isLoading,
+  error,
+}: Props) {
   return (
-    <ChartCard title={title} subtitle={subtitle} data={data} isLoading={isLoading} error={error}>
+    <ChartCard
+      title={title}
+      subtitle={subtitle}
+      data={data}
+      isLoading={isLoading}
+      error={error}
+    >
       {data && (
         <ResponsiveContainer width="100%" height="100%">
           <ReLineChart
             data={data.dataPoints}
             margin={{ top: 10, right: 5, left: 5, bottom: 20 }}
           >
-            <CartesianGrid
-              stroke="var(--border)" // themed grid
-              strokeDasharray="3 3"
-            />
+            <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
             <XAxis
               dataKey={data.xAxisKey}
               fontSize={12}
@@ -42,7 +51,7 @@ export default function LineChart({ title, subtitle, data, isLoading, error }: P
               angle={-45}
               textAnchor="end"
               height={60}
-              tick={{ fill: "var(--foreground)" }} // themed axis labels
+              tick={{ fill: "var(--foreground)" }}
             />
             <YAxis
               unit={` ${data.yAxisUnit}`}
@@ -79,7 +88,7 @@ export default function LineChart({ title, subtitle, data, isLoading, error }: P
                 key={y.key}
                 type="monotone"
                 dataKey={y.key}
-                stroke={y.color} // keep chart line colors
+                stroke={y.color}
                 name={y.name}
                 dot={false}
                 strokeWidth={2}
@@ -88,7 +97,7 @@ export default function LineChart({ title, subtitle, data, isLoading, error }: P
             <Brush
               dataKey={data.xAxisKey}
               height={25}
-              stroke="var(--primary)" // themed brush
+              stroke="var(--primary)"
               travellerWidth={10}
             />
           </ReLineChart>

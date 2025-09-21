@@ -22,9 +22,21 @@ interface Props {
   error?: string;
 }
 
-export default function BarChart({ title, subtitle, data, isLoading, error }: Props) {
+export default function BarChart({
+  title,
+  subtitle,
+  data,
+  isLoading,
+  error,
+}: Props) {
   return (
-    <ChartCard title={title} subtitle={subtitle} data={data} isLoading={isLoading} error={error}>
+    <ChartCard
+      title={title}
+      subtitle={subtitle}
+      data={data}
+      isLoading={isLoading}
+      error={error}
+    >
       {data && (
         <ResponsiveContainer width="100%" height="100%">
           <ReBarChart
@@ -60,7 +72,11 @@ export default function BarChart({ title, subtitle, data, isLoading, error }: Pr
                   <div className="bg-card text-card-foreground border border-border rounded shadow p-2 text-xs sm:text-sm max-w-xs">
                     <p className="font-semibold break-words">{label}</p>
                     {payload.map((entry) => (
-                      <p key={entry.dataKey} style={{ color: entry.color }} className="break-words">
+                      <p
+                        key={entry.dataKey}
+                        style={{ color: entry.color }}
+                        className="break-words"
+                      >
                         {entry.name}: {entry.value} {data.yAxisUnit}
                       </p>
                     ))}
@@ -74,9 +90,19 @@ export default function BarChart({ title, subtitle, data, isLoading, error }: Pr
               wrapperStyle={{ fontSize: "12px", color: "var(--foreground)" }}
             />
             {data.yAxisKeys.map((y) => (
-              <Bar key={y.key} dataKey={y.key} fill={y.color} name={y.name} barSize={40} />
+              <Bar
+                key={y.key}
+                dataKey={y.key}
+                fill={y.color}
+                name={y.name}
+                barSize={40}
+              />
             ))}
-            <Brush dataKey={data.xAxisKey} height={25} stroke="var(--primary)" />
+            <Brush
+              dataKey={data.xAxisKey}
+              height={25}
+              stroke="var(--primary)"
+            />
           </ReBarChart>
         </ResponsiveContainer>
       )}

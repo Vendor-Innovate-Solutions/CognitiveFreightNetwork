@@ -9,11 +9,11 @@ export default function DashboardPage() {
   const [lineData, setLineData] = useState<typeof mockChartData | null>(null);
   const [barData, setBarData] = useState<typeof mockChartData | null>(null);
   const [loading, setLoading] = useState(true);
- //Just to simulate 2second delay so the loading is visible for now.
+  //Just to simulate 2second delay so the loading is visible for now.
   useEffect(() => {
     const timer = setTimeout(() => {
-      setLineData(mockChartData);      
-      setBarData(mockChartData); 
+      setLineData(mockChartData);
+      setBarData(mockChartData);
       setLoading(false);
     }, 2000);
     return () => clearTimeout(timer);
