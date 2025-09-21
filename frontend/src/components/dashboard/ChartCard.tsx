@@ -1,52 +1,153 @@
 "use client"
 
+  
+
 import type React from "react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+
 import type { ChartCardProps } from "@/types/chart"
-import { Loader2 } from "lucide-react"
+
+import { Loader2, AlertCircle, BarChart3 } from "lucide-react"
+
+  
 
 export default function ChartCard({
-  title,
-  subtitle,
-  data,
-  isLoading,
-  error,
-  children,
+
+title,
+
+subtitle,
+
+data,
+
+isLoading,
+
+error,
+
+children,
+
 }: React.PropsWithChildren<ChartCardProps>) {
-  return (
-    <Card className="w-full shadow-md rounded-2xl">
-      <CardHeader className="px-3 py-4 sm:px-6 sm:py-6">
-        <CardTitle className="text-base sm:text-lg font-semibold break-words">{title}</CardTitle>
-        {subtitle && <p className="text-xs sm:text-sm text-gray-500 break-words">{subtitle}</p>}
-      </CardHeader>
 
-      <CardContent className="w-full flex flex-col items-center justify-center px-2 sm:px-6">
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex flex-col items-center justify-center gap-2 py-8 sm:py-10">
-            <Loader2 className="animate-spin text-gray-500" size={20} />
-            <p className="text-gray-500 text-xs sm:text-sm">Loading data...</p>
-          </div>
-        )}
+return (
 
-        {/* Error State */}
-        {error && !isLoading && (
-          <p className="text-red-500 text-xs sm:text-sm py-8 sm:py-10 text-center break-words">{error}</p>
-        )}
+<Card className="w-full bg-card border border-border/30 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
 
-        {/* Empty State */}
-        {!isLoading && !error && data && data.dataPoints.length === 0 && (
-          <p className="text-gray-500 text-xs sm:text-sm py-8 sm:py-10 text-center">
-            No data available for this period.
-          </p>
-        )}
+{/* Card Header */}
 
-        {/* Chart Content */}
-        {!isLoading && !error && data && data.dataPoints.length > 0 && (
-          <div className="w-full h-64 sm:h-80 md:h-96 lg:aspect-[16/9] min-h-0">{children}</div>
-        )}
-      </CardContent>
-    </Card>
-  )
+<CardHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b border-border/20 flex items-center justify-between">
+
+<div className="flex-1 min-w-0">
+
+<CardTitle className="text-lg sm:text-xl font-semibold text-foreground break-words leading-tight">
+
+{title}
+
+</CardTitle>
+
+{subtitle && (
+
+<p className="text-sm sm:text-base text-muted-foreground break-words mt-1 leading-relaxed">
+
+{subtitle}
+
+</p>
+
+)}
+
+</div>
+
+<div className="flex-shrink-0 p-2 bg-primary/10 rounded-lg">
+
+<BarChart3 className="w-5 h-5 text-primary" />
+
+</div>
+
+</CardHeader>
+
+  
+
+{/* Card Content */}
+
+<CardContent className="w-full flex flex-col items-center justify-center px-5 sm:px-6 py-6">
+
+{/* Loading */}
+
+{isLoading && (
+
+<div className="flex flex-col items-center justify-center gap-4 py-12 sm:py-16">
+
+<Loader2 className="animate-spin text-primary w-8 h-8" />
+
+<p className="text-muted-foreground text-sm sm:text-base font-medium text-center">
+
+Loading chart data...
+
+</p>
+
+</div>
+
+)}
+
+  
+
+{/* Error */}
+
+{error && !isLoading && (
+
+<div className="flex flex-col items-center justify-center gap-4 py-12 sm:py-16">
+
+<AlertCircle className="w-8 h-8 text-destructive" />
+
+<div className="text-center max-w-sm">
+
+<p className="text-destructive font-medium text-sm sm:text-base">Unable to load data</p>
+
+<p className="text-destructive/80 text-xs sm:text-sm break-words leading-relaxed">{error}</p>
+
+</div>
+
+</div>
+
+)}
+
+  
+
+{/* Empty */}
+
+{!isLoading && !error && data && data.dataPoints.length === 0 && (
+
+<div className="flex flex-col items-center justify-center gap-4 py-12 sm:py-16">
+
+<BarChart3 className="w-8 h-8 text-muted-foreground/50" />
+
+<p className="text-muted-foreground text-sm sm:text-base text-center">
+
+No data available for this period
+
+</p>
+
+</div>
+
+)}
+
+  
+
+{/* Chart */}
+
+{!isLoading && !error && data && data.dataPoints.length > 0 && (
+
+<div className="w-full h-64 sm:h-80 md:h-96 lg:aspect-[16/9] min-h-0">
+
+{children}
+
+</div>
+
+)}
+
+</CardContent>
+
+</Card>
+
+)
+
 }
