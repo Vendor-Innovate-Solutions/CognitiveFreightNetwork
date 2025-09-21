@@ -32,7 +32,7 @@ return (
 
 <Card className="w-full bg-card border border-border/30 shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden">
 
-{/* Card Header */}
+
 
 <CardHeader className="px-5 py-4 sm:px-6 sm:py-5 border-b border-border/20 flex items-center justify-between">
 
@@ -66,11 +66,9 @@ return (
 
   
 
-{/* Card Content */}
 
 <CardContent className="w-full flex flex-col items-center justify-center px-5 sm:px-6 py-6">
 
-{/* Loading */}
 
 {isLoading && (
 
@@ -90,7 +88,6 @@ Loading chart data...
 
   
 
-{/* Error */}
 
 {error && !isLoading && (
 
@@ -110,9 +107,6 @@ Loading chart data...
 
 )}
 
-  
-
-{/* Empty */}
 
 {!isLoading && !error && data && data.dataPoints.length === 0 && (
 
@@ -130,9 +124,6 @@ No data available for this period
 
 )}
 
-  
-
-{/* Chart */}
 
 {!isLoading && !error && data && data.dataPoints.length > 0 && (
 

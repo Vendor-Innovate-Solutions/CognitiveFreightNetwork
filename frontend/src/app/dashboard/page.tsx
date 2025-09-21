@@ -9,20 +9,18 @@ export default function DashboardPage() {
   const [lineData, setLineData] = useState<typeof mockChartData | null>(null);
   const [barData, setBarData] = useState<typeof mockChartData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Simulate data fetch
+ //Just to simulate 2second delay so the loading is visible for now.
   useEffect(() => {
     const timer = setTimeout(() => {
-      setLineData(mockChartData);       // Line chart gets data
-      setBarData(mockChartData); // Bar chart empty state
+      setLineData(mockChartData);      
+      setBarData(mockChartData); 
       setLoading(false);
-    }, 2000); // 2-second delay
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-background">
-      {/* Line Chart */}
       <LineChart
         title="Port Dwell Time Analysis (Line)"
         subtitle="Last 7 Days"
@@ -30,8 +28,6 @@ export default function DashboardPage() {
         isLoading={loading}
         error={undefined}
       />
-
-      {/* Bar Chart */}
       <BarChart
         title="Port Dwell Time Analysis (Bar)"
         subtitle="Last 7 Days"
