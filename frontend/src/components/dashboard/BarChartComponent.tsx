@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
   BarChart as ReBarChart,
@@ -9,16 +9,17 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from "recharts";
-import { ChartData } from "@/types/chart";
-import ChartCard from "./ChartCard";
+  Brush,
+} from "recharts"
+import type { ChartData } from "@/types/chart"
+import ChartCard from "./ChartCard"
 
 interface Props {
-  title: string;
-  subtitle?: string;
-  data: ChartData | null;
-  isLoading?: boolean;
-  error?: string;
+  title: string
+  subtitle?: string
+  data: ChartData | null
+  isLoading?: boolean
+  error?: string
 }
 
 export default function BarChart({ title, subtitle, data, isLoading, error }: Props) {
@@ -26,32 +27,49 @@ export default function BarChart({ title, subtitle, data, isLoading, error }: Pr
     <ChartCard title={title} subtitle={subtitle} data={data} isLoading={isLoading} error={error}>
       {data && (
         <ResponsiveContainer width="100%" height="100%">
-          <ReBarChart data={data.dataPoints} barGap={8}>
+          <ReBarChart
+            data={data.dataPoints}
+            barGap={8}
+            margin={{
+              top: 10,
+              right: 5,
+              left: 5,
+              bottom: 20,
+            }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey={data.xAxisKey} />
-            <YAxis unit={` ${data.yAxisUnit}`} />
+            <XAxis
+              dataKey={data.xAxisKey}
+              fontSize={12}
+              interval="preserveStartEnd"
+              angle={-45}
+              textAnchor="end"
+              height={60}
+            />
+            <YAxis unit={` ${data.yAxisUnit}`} fontSize={12} width={60} />
             <Tooltip
               content={({ payload, label }) => {
-                if (!payload || payload.length === 0) return null;
+                if (!payload || payload.length === 0) return null
                 return (
-                  <div className="bg-white border rounded shadow p-2 text-sm">
-                    <p className="font-semibold">{label}</p>
+                  <div className="bg-white border rounded shadow p-2 text-xs sm:text-sm max-w-xs">
+                    <p className="font-semibold break-words">{label}</p>
                     {payload.map((entry) => (
-                      <p key={entry.dataKey} style={{ color: entry.color }}>
+                      <p key={entry.dataKey} style={{ color: entry.color }} className="break-words">
                         {entry.name}: {entry.value} {data.yAxisUnit}
                       </p>
                     ))}
                   </div>
-                );
+                )
               }}
             />
-            <Legend verticalAlign="bottom" />
+            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: "12px" }} />
             {data.yAxisKeys.map((y) => (
               <Bar key={y.key} dataKey={y.key} fill={y.color} name={y.name} barSize={40} />
             ))}
+            <Brush dataKey={data.xAxisKey} height={25} stroke="#82ca9d" />
           </ReBarChart>
         </ResponsiveContainer>
       )}
     </ChartCard>
-  );
+  )
 }

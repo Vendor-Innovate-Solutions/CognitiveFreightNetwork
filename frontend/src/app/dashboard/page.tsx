@@ -14,7 +14,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setLineData(mockChartData);       // Line chart gets data
-      setBarData({ ...mockChartData, dataPoints: [] }); // Bar chart empty state
+      setBarData(mockChartData); // Bar chart empty state
       setLoading(false);
     }, 2000); // 2-second delay
     return () => clearTimeout(timer);
