@@ -54,10 +54,14 @@
   --popover: #2A2A2A;
   --popover-foreground: #E5E5E5;
 
-  --primary: #4F9EF1;
+  --primary: #0F172A;
   --primary-foreground: #FFFFFF;
-  --secondary: #6C6C6C;
+  --secondary: #F97316;
   --secondary-foreground: #FFFFFF;
+  --success:#10B981;
+  --warnings:#F59E0B;
+  --error:#EF4444;
+  --neutral:#64748B;
   --muted: #6C6C6C;
   --muted-foreground: #A0A0A0;
   --accent: #4F9EF1;
