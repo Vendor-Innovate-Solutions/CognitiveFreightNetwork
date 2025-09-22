@@ -1,24 +1,14 @@
 "use client";
-
 import type React from "react";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 import type { ChartCardProps } from "@/types/chart";
-
 import { Loader2, AlertCircle, BarChart3 } from "lucide-react";
-
 export default function ChartCard({
   title,
-
   subtitle,
-
   data,
-
   isLoading,
-
   error,
-
   children,
 }: React.PropsWithChildren<ChartCardProps>) {
   return (
