@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Logistics Dashboard — Simulated Routes</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <h1>Simulated Routes</h1>
+
+        <div class="control">
+          <label for="routeSelect">Route</label>
+          <select id="routeSelect">
+            <option value="">— Select a route —</option>
+          </select>
+        </div>
+
+        <div class="control inline">
+          <button id="btnFit">Fit to route</button>
+          <button id="btnClear">Clear</button>
+        </div>
+
+        <div class="control">
+          <div class="control-title">Event Layers</div>
+          <label class="checkbox"><input type="checkbox" id="toggleCongestion" checked /> Predicted Congestion</label>
+          <label class="checkbox"><input type="checkbox" id="toggleReroute" checked /> Reroute Points</label>
+          <label class="checkbox"><input type="checkbox" id="toggleIncident" checked /> Incidents</label>
+        </div>
+
+        <div class="control">
+          <div class="control-title">Playback</div>
+          <div class="playback">
+            <button id="btnPlay">Play</button>
+            <button id="btnPause" disabled>Pause</button>
+            <button id="btnReset">Reset</button>
+          </div>
+          <div class="slider-row">
+            <input type="range" id="progress" min="0" max="1000" value="0" />
+          </div>
+          <div class="slider-row">
+            <label for="speed">Speed</label>
+            <input type="range" id="speed" min="0.25" max="4" value="1" step="0.25" />
+            <span id="speedVal">1x</span>
+          </div>
+          <div class="timestamp">Time: <span id="timeLabel">—</span></div>
+        </div>
+
+        <div class="legend">
+          <div class="legend-title">Legend</div>
+          <div class="legend-item"><span class="chip route"></span> Route</div>
+          <div class="legend-item"><span class="chip congestion"></span> Predicted Congestion</div>
+          <div class="legend-item"><span class="chip reroute"></span> Reroute Point</div>
+          <div class="legend-item"><span class="chip incident"></span> Incident</div>
+        </div>
+
+        <details class="control">
+          <summary>Loaded Data</summary>
+          <pre id="dataPreview">Loading…</pre>
+        </details>
+      </aside>
+      <main id="map"></main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="app.js"></script>
+  </body>
+</html>
