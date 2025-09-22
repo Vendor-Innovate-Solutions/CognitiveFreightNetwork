@@ -1,0 +1,43 @@
+{
+  "routes": [
+    {
+      "id": "r1",
+      "name": "SF Downtown → Oakland Docks",
+      "path": [
+        { "lat": 37.7749, "lng": -122.4194, "timestamp": "2025-09-22T00:00:00Z" },
+        { "lat": 37.7791, "lng": -122.4037, "timestamp": "2025-09-22T00:03:00Z" },
+        { "lat": 37.7879, "lng": -122.3900, "timestamp": "2025-09-22T00:06:00Z" },
+        { "lat": 37.7983, "lng": -122.3778, "timestamp": "2025-09-22T00:09:00Z" },
+        { "lat": 37.8078, "lng": -122.3700, "timestamp": "2025-09-22T00:12:00Z" },
+        { "lat": 37.8172, "lng": -122.3450, "timestamp": "2025-09-22T00:15:00Z" },
+        { "lat": 37.8250, "lng": -122.3200, "timestamp": "2025-09-22T00:18:00Z" },
+        { "lat": 37.8299, "lng": -122.2980, "timestamp": "2025-09-22T00:21:00Z" },
+        { "lat": 37.8044, "lng": -122.2712, "timestamp": "2025-09-22T00:24:00Z" }
+      ],
+      "events": [
+        { "type": "congestion", "lat": 37.7890, "lng": -122.3890, "time": "2025-09-22T00:05:00Z", "severity": "high", "note": "Bridge approach slowdown" },
+        { "type": "reroute", "lat": 37.8175, "lng": -122.3430, "time": "2025-09-22T00:15:30Z", "severity": "medium", "note": "Alternate ramp suggested" },
+        { "type": "incident", "lat": 37.8085, "lng": -122.3690, "time": "2025-09-22T00:11:00Z", "severity": "low", "note": "Minor stall on shoulder" }
+      ]
+    },
+    {
+      "id": "r2",
+      "name": "San Jose DC → SFO Cargo",
+      "path": [
+        { "lat": 37.3382, "lng": -121.8863, "timestamp": "2025-09-22T01:00:00Z" },
+        { "lat": 37.3600, "lng": -121.9000, "timestamp": "2025-09-22T01:05:00Z" },
+        { "lat": 37.3900, "lng": -122.0000, "timestamp": "2025-09-22T01:12:00Z" },
+        { "lat": 37.4300, "lng": -122.1500, "timestamp": "2025-09-22T01:20:00Z" },
+        { "lat": 37.4700, "lng": -122.2200, "timestamp": "2025-09-22T01:28:00Z" },
+        { "lat": 37.5200, "lng": -122.2600, "timestamp": "2025-09-22T01:36:00Z" },
+        { "lat": 37.5600, "lng": -122.2800, "timestamp": "2025-09-22T01:42:00Z" },
+        { "lat": 37.6152, "lng": -122.3899, "timestamp": "2025-09-22T01:50:00Z" }
+      ],
+      "events": [
+        { "type": "congestion", "lat": 37.4705, "lng": -122.2190, "time": "2025-09-22T01:27:00Z", "severity": "medium", "note": "US-101 slow traffic" },
+        { "type": "incident", "lat": 37.5205, "lng": -122.2590, "time": "2025-09-22T01:35:00Z", "severity": "high", "note": "Accident cleared" },
+        { "type": "reroute", "lat": 37.5605, "lng": -122.2810, "time": "2025-09-22T01:43:00Z", "severity": "low", "note": "Avoid toll segment" }
+      ]
+    }
+  ]
+}
