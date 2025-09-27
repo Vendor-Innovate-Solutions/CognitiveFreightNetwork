@@ -29,8 +29,26 @@ export const mockChartData: ChartData = {
   ],
   xAxisKey: "date",
   yAxisKeys: [
-    { key: "actualHours", color: "#8884d8", name: "Actual Dwell Time" },
-    { key: "predictedHours", color: "#82ca9d", name: "Predicted Dwell Time" },
+    { key: "actualHours", color: "#3B82F6", name: "Actual Dwell Time" },
+    { key: "predictedHours", color: "#0EA5E9", name: "Predicted Dwell Time" },
   ],
   yAxisUnit: "hours",
+};
+
+// Additional mock data for bar charts
+export const mockBarChartData: ChartData = {
+  dataPoints: [
+    { route: "Route A", efficiency: 85, cost: 12500 },
+    { route: "Route B", efficiency: 92, cost: 11200 },
+    { route: "Route C", efficiency: 78, cost: 13800 },
+    { route: "Route D", efficiency: 88, cost: 11900 },
+    { route: "Route E", efficiency: 95, cost: 10500 },
+    { route: "Route F", efficiency: 82, cost: 12800 },
+  ],
+  xAxisKey: "route",
+  yAxisKeys: [
+    { key: "efficiency", color: "#059669", name: "Efficiency Score" },
+    { key: "cost", color: "#DC2626", name: "Operating Cost" },
+  ],
+  yAxisUnit: "%",
 };
