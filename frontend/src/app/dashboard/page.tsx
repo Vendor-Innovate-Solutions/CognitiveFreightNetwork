@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import BarChart from "@/components/dashboard/BarChartComponent";
-import LineChart from "@/components/dashboard/LineChartComponent";
+import SmartChart from "@/components/dashboard/SmartChart";
 import { mockChartData } from "@/data/ChartMockData";
 
 export default function DashboardPage() {
-  const [lineData, setLineData] = useState<typeof mockChartData | null>(null);
-  const [barData, setBarData] = useState<typeof mockChartData | null>(null);
+  const [chartData, setChartData] = useState<typeof mockChartData | null>(null);
   const [loading, setLoading] = useState(true);
-  //Just to simulate 2second delay so the loading is visible for now.
+
+  // Simulate fetch delay
   useEffect(() => {
     const timer = setTimeout(() => {
-      setLineData(mockChartData);
-      setBarData(mockChartData);
+      setChartData(mockChartData);
       setLoading(false);
     }, 2000);
     return () => clearTimeout(timer);
@@ -21,19 +19,17 @@ export default function DashboardPage() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-background">
-      <LineChart
-        title="Port Dwell Time Analysis (Line)"
+      <SmartChart
+        title="Port Dwell Time Analysis (Auto)"
         subtitle="Last 7 Days"
-        data={lineData}
+        data={chartData}
         isLoading={loading}
-        error={undefined}
       />
-      <BarChart
-        title="Port Dwell Time Analysis (Bar)"
-        subtitle="Last 7 Days"
-        data={barData}
+      <SmartChart
+        title="Another View (Auto)"
+        subtitle="Last 30 Days"
+        data={chartData}
         isLoading={loading}
-        error={undefined}
       />
     </div>
   );
