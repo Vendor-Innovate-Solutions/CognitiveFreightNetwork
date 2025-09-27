@@ -1,4 +1,5 @@
 // src/lib/chartUtils.ts
+
 export type GenericDataPoint = Record<
   string,
   string | number | boolean | null | undefined
@@ -19,17 +20,12 @@ export function detectChartType(
 ): "line" | "bar" {
   if (!data || data.length === 0) return "line";
 
-  // infer yKeys if not provided: take keys from first row excluding xKey and non-numeric-like values
   const first = data[0];
   const inferredYKeys =
     yKeys && yKeys.length > 0
       ? yKeys
       : Object.keys(first).filter((k) => k !== xKey);
 
-  // For each yKey compute:
-  // - number of unique numeric values
-  // - percent of zeros
-  // - whether most values are integers
   const stats = inferredYKeys.map((key) => {
     const vals = data
       .map((d) => d[key])
@@ -46,20 +42,57 @@ export function detectChartType(
     };
   });
 
-  // Heuristic rules:
-  // - If all numeric series have few unique values (<= 8) -> categorical => bar
   const mostlyCategorical = stats.every((s) => s.unique <= 8 && s.count > 0);
-
   if (mostlyCategorical) return "bar";
 
-  // - If at least one series has many unique values (> 12) -> continuous => line
   const hasContinuous = stats.some((s) => s.unique > 12);
   if (hasContinuous) return "line";
 
-  // - If series are mostly integers and many zeros (counts) -> bar
   const looksLikeCounts = stats.some((s) => s.intPct > 0.8 && s.zeroPct > 0.2);
   if (looksLikeCounts) return "bar";
 
-  // fallback -> line
   return "line";
 }
+
+/**
+ * Aggregate data for performance:
+ * - Groups X values by "bucketSize" (number of consecutive points)
+ * - Averages numeric Y values
+ */
+export function aggregateData(
+  data: GenericDataPoint[],
+  xKey: string,
+  yKeys: string[],
+  bucketSize: number
+): GenericDataPoint[] {
+  if (data.length <= bucketSize) return data;
+
+  const aggregated: GenericDataPoint[] = [];
+
+  for (let i = 0; i < data.length; i += bucketSize) {
+    const slice = data.slice(i, i + bucketSize);
+    const aggPoint: GenericDataPoint = {};
+
+    // Use first x value in bucket as representative
+    aggPoint[xKey] = slice[0][xKey];
+
+    yKeys.forEach((key) => {
+      const nums = slice.map((d) => Number(d[key])).filter((v) => !isNaN(v));
+      const avg = nums.length
+        ? nums.reduce((a, b) => a + b, 0) / nums.length
+        : 0;
+      aggPoint[key] = avg;
+    });
+
+    aggregated.push(aggPoint);
+  }
+
+  return aggregated;
+}
+
+/**
+ * Placeholder for future extensions:
+ * - Predictive trendlines
+ * - Anomaly detection highlighting
+ * - Other chart utilities
+ */
