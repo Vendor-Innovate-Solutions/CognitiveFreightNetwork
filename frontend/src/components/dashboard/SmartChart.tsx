@@ -16,14 +16,12 @@ type Props = {
   yKeys?: string[];
 };
 
-// --- helper for outlier-aware Y domain ---
 function computeYDomain(
   points: GenericDataPoint[],
   yKeys: string[]
 ): [number, number] | ["auto", "auto"] {
   if (!points.length || !yKeys.length) return ["auto", "auto"];
 
-  // ✅ Use String(key) for safe indexing
   const values = points.flatMap((p) =>
     yKeys.map((key) => Number(p[String(key)])).filter((v) => !isNaN(v))
   );
@@ -50,7 +48,6 @@ export default function SmartChart({
   error,
   yKeys,
 }: Props) {
-  // Fallback to LineChart if no data (shows loading / empty / error states)
   if (!data) {
     return (
       <LineChart

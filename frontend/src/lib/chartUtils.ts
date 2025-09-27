@@ -1,5 +1,3 @@
-// src/lib/chartUtils.ts
-
 export type GenericDataPoint = Record<
   string,
   string | number | boolean | null | undefined
@@ -54,11 +52,6 @@ export function detectChartType(
   return "line";
 }
 
-/**
- * Aggregate data for performance:
- * - Groups X values by "bucketSize" (number of consecutive points)
- * - Averages numeric Y values
- */
 export function aggregateData(
   data: GenericDataPoint[],
   xKey: string,
@@ -73,7 +66,6 @@ export function aggregateData(
     const slice = data.slice(i, i + bucketSize);
     const aggPoint: GenericDataPoint = {};
 
-    // Use first x value in bucket as representative
     aggPoint[xKey] = slice[0][xKey];
 
     yKeys.forEach((key) => {
