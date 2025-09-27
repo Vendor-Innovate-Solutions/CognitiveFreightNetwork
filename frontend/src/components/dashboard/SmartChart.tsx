@@ -1,8 +1,11 @@
 "use client";
 
 import React from "react";
-import { detectChartType } from "@/lib/chartUtils";
-import type { GenericDataPoint } from "@/lib/chartUtils";
+import {
+  detectChartType,
+  computeYDomain,
+  type GenericDataPoint,
+} from "@/lib/chartUtils";
 import type { ChartData } from "@/types/chart";
 import LineChart from "@/components/dashboard/LineChartComponent";
 import BarChart from "@/components/dashboard/BarChartComponent";
@@ -15,30 +18,6 @@ type Props = {
   error?: string | null;
   yKeys?: string[];
 };
-
-function computeYDomain(
-  points: GenericDataPoint[],
-  yKeys: string[]
-): [number, number] | ["auto", "auto"] {
-  if (!points.length || !yKeys.length) return ["auto", "auto"];
-
-  const values = points.flatMap((p) =>
-    yKeys.map((key) => Number(p[String(key)])).filter((v) => !isNaN(v))
-  );
-
-  if (!values.length) return ["auto", "auto"];
-
-  values.sort((a, b) => a - b);
-  const q1 = values[Math.floor(values.length * 0.25)];
-  const q3 = values[Math.floor(values.length * 0.75)];
-  const iqr = q3 - q1;
-  const upperFence = q3 + 1.5 * iqr;
-
-  const nonOutlierMax = Math.max(...values.filter((v) => v <= upperFence));
-  const safeMax = Math.max(nonOutlierMax, 1);
-
-  return [0, safeMax] as [number, number];
-}
 
 export default function SmartChart({
   title,
@@ -60,7 +39,14 @@ export default function SmartChart({
     );
   }
 
-  const genericPoints = data.dataPoints as unknown as GenericDataPoint[];
+
+  const genericPoints: GenericDataPoint[] = data.dataPoints.map((point) => {
+    const gPoint: GenericDataPoint = {};
+    Object.keys(point).forEach((key) => {
+      gPoint[key] = point[key as keyof typeof point];
+    });
+    return gPoint;
+  });
 
   const inferredYKeys =
     yKeys && yKeys.length > 0
@@ -85,7 +71,7 @@ export default function SmartChart({
         data={data}
         isLoading={isLoading}
         error={error ?? undefined}
-        yDomain={yDomain}
+        yDomain={yDomain} 
       />
     );
   } else {
@@ -96,7 +82,7 @@ export default function SmartChart({
         data={data}
         isLoading={isLoading}
         error={error ?? undefined}
-        yDomain={yDomain}
+        yDomain={yDomain} 
       />
     );
   }

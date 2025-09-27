@@ -88,3 +88,28 @@ export function aggregateData(
  * - Anomaly detection highlighting
  * - Other chart utilities
  */
+
+
+export function computeYDomain(
+  points: GenericDataPoint[],
+  yKeys: string[]
+): [number, number] | ["auto", "auto"] {
+  if (!points.length || !yKeys.length) return ["auto", "auto"];
+
+  const values = points.flatMap((p) =>
+    yKeys.map((key) => Number(p[String(key)])).filter((v) => !isNaN(v))
+  );
+
+  if (!values.length) return ["auto", "auto"];
+
+  values.sort((a, b) => a - b);
+  const q1 = values[Math.floor(values.length * 0.25)];
+  const q3 = values[Math.floor(values.length * 0.75)];
+  const iqr = q3 - q1;
+  const upperFence = q3 + 1.5 * iqr;
+
+  const nonOutlierMax = Math.max(...values.filter((v) => v <= upperFence));
+  const safeMax = Math.max(nonOutlierMax, 1);
+
+  return [0, safeMax] as [number, number];
+}

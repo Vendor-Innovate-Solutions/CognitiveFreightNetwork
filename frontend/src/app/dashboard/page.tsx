@@ -5,7 +5,7 @@ import SmartChart from "@/components/dashboard/SmartChart";
 import { mockChartData } from "@/data/ChartMockData";
 import * as htmlToImage from "html-to-image";
 import download from "downloadjs";
-import jsPDF from "jspdf";
+import {jsPDF} from "jspdf";
 
 export default function DashboardPage() {
   const [chartData, setChartData] = useState<typeof mockChartData | null>(null);
