@@ -27,7 +27,7 @@ export function detectChartType(
   const stats = inferredYKeys.map((key) => {
     const vals = data
       .map((d) => d[key])
-      .filter((v) => typeof v === "number") as number[];
+      .filter((v) => typeof v === "number" && Number.isFinite(v)) as number[];
     const unique = new Set(vals).size;
     const zeros = vals.filter((v) => v === 0).length;
     const ints = vals.filter((v) => Number.isInteger(v)).length;
