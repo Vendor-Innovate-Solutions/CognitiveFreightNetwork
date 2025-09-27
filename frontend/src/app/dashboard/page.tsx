@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SmartChart from "@/components/dashboard/SmartChart";
-import { mockChartData } from "@/data/ChartMockData";
-import * as htmlToImage from "html-to-image";
-import download from "downloadjs";
-import {jsPDF} from "jspdf";
+import { mockBarChartData, mockChartData } from "@/data/ChartMockData";
 
 export default function DashboardPage() {
   const [chartData, setChartData] = useState<typeof mockChartData | null>(null);
