@@ -20,6 +20,7 @@ interface Props {
   data: ChartData | null;
   isLoading?: boolean;
   error?: string;
+  yDomain?: [number, number] | ["auto", "auto"];
 }
 
 export default function LineChart({
@@ -28,6 +29,7 @@ export default function LineChart({
   data,
   isLoading,
   error,
+  yDomain = ["auto", "auto"],
 }: Props) {
   return (
     <ChartCard
@@ -54,6 +56,7 @@ export default function LineChart({
               tick={{ fill: "var(--foreground)" }}
             />
             <YAxis
+              domain={yDomain}
               unit={` ${data.yAxisUnit}`}
               fontSize={12}
               width={60}

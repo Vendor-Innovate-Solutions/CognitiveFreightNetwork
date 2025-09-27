@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import type { ChartData } from "@/types/chart";
 import ChartCard from "./ChartCard";
+import type { GenericDataPoint } from "@/lib/chartUtils";
 
 interface Props {
   title: string;
@@ -20,6 +21,32 @@ interface Props {
   data: ChartData | null;
   isLoading?: boolean;
   error?: string;
+  yDomain?: [number, number] | ["auto", "auto"];
+}
+
+// --- helper for outlier-aware Y domain ---
+function computeYDomain(
+  points: GenericDataPoint[],
+  yKeys: string[]
+): [number, number] | ["auto", "auto"] {
+  if (!points.length || !yKeys.length) return ["auto", "auto"];
+
+  const values = points.flatMap((p) =>
+    yKeys.map((key) => Number(p[key])).filter((v) => !isNaN(v))
+  );
+
+  if (!values.length) return ["auto", "auto"];
+
+  values.sort((a, b) => a - b);
+  const q1 = values[Math.floor(values.length * 0.25)];
+  const q3 = values[Math.floor(values.length * 0.75)];
+  const iqr = q3 - q1;
+  const upperFence = q3 + 1.5 * iqr;
+
+  const nonOutlierMax = Math.max(...values.filter((v) => v <= upperFence));
+  const safeMax = Math.max(nonOutlierMax, 1);
+
+  return [0, safeMax];
 }
 
 export default function BarChart({
@@ -28,7 +55,18 @@ export default function BarChart({
   data,
   isLoading,
   error,
+  yDomain,
 }: Props) {
+  // Compute yDomain dynamically if not passed
+  const finalYDomain =
+    yDomain ||
+    (data
+      ? computeYDomain(
+          data.dataPoints as unknown as GenericDataPoint[],
+          data.yAxisKeys.map((y) => y.key)
+        )
+      : ["auto", "auto"]);
+
   return (
     <ChartCard
       title={title}
@@ -42,12 +80,7 @@ export default function BarChart({
           <ReBarChart
             data={data.dataPoints}
             barGap={8}
-            margin={{
-              top: 10,
-              right: 5,
-              left: 5,
-              bottom: 20,
-            }}
+            margin={{ top: 10, right: 5, left: 5, bottom: 20 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
@@ -60,6 +93,7 @@ export default function BarChart({
               tick={{ fill: "var(--foreground)" }}
             />
             <YAxis
+              domain={finalYDomain} // ✅ dynamic Y-axis scaling
               unit={` ${data.yAxisUnit}`}
               fontSize={12}
               width={60}

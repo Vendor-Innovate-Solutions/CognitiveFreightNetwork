@@ -13,9 +13,33 @@ type Props = {
   data: ChartData | null;
   isLoading?: boolean;
   error?: string | null;
-  // optional override for detection (explicit yKeys)
   yKeys?: string[];
 };
+
+// --- helper for outlier-aware Y domain ---
+function computeYDomain(
+  points: GenericDataPoint[],
+  yKeys: string[]
+): [number, number] | ["auto", "auto"] {
+  if (!points.length || !yKeys.length) return ["auto", "auto"];
+
+  const values = points.flatMap((p) =>
+    yKeys.map((key) => Number(p[key])).filter((v) => !isNaN(v))
+  );
+
+  if (!values.length) return ["auto", "auto"];
+
+  values.sort((a, b) => a - b);
+  const q1 = values[Math.floor(values.length * 0.25)];
+  const q3 = values[Math.floor(values.length * 0.75)];
+  const iqr = q3 - q1;
+  const upperFence = q3 + 1.5 * iqr;
+
+  const nonOutlierMax = Math.max(...values.filter((v) => v <= upperFence));
+  const safeMax = Math.max(nonOutlierMax, 1);
+
+  return [0, safeMax] as [number, number];
+}
 
 export default function SmartChart({
   title,
@@ -25,9 +49,7 @@ export default function SmartChart({
   error,
   yKeys,
 }: Props) {
-  // If no data, default to line (card will display loading/empty/error states)
   if (!data) {
-    // Render LineChart by default so UI remains consistent with ChartCard states
     return (
       <LineChart
         title={title}
@@ -54,6 +76,8 @@ export default function SmartChart({
     inferredYKeys
   );
 
+  const yDomain = computeYDomain(genericPoints, inferredYKeys);
+
   if (chartType === "bar") {
     return (
       <BarChart
@@ -62,6 +86,7 @@ export default function SmartChart({
         data={data}
         isLoading={isLoading}
         error={error ?? undefined}
+        yDomain={yDomain}
       />
     );
   } else {
@@ -72,6 +97,7 @@ export default function SmartChart({
         data={data}
         isLoading={isLoading}
         error={error ?? undefined}
+        yDomain={yDomain}
       />
     );
   }
