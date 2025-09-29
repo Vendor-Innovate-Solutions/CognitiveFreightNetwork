@@ -1,1 +1,57 @@
-venv 
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+
+# Virtual Environments
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# IDE / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs & Debug
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.DS_Store
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+pytest_cache/
+.mypy_cache/
+.pytest_cache/
+.cache/
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
+docker-compose.override.yml
+
+# Environments
+.env.local
+.env.*.local
+.envrc
+.env.bak
+.env.test
