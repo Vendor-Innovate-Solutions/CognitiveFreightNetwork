@@ -1,0 +1,43 @@
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color: #1f2937; }
+
+#app { display: grid; grid-template-columns: 340px 1fr; }
+
+#sidebar { padding: 16px; border-right: 1px solid #e5e7eb; overflow: auto; }
+#sidebar h1 { margin: 0 0 12px; font-size: 18px; }
+
+#map { height: 100vh; width: 100%; }
+
+.control { margin: 12px 0; }
+.control.inline { display: flex; gap: 8px; align-items: center; }
+.control-title { font-weight: 600; margin-bottom: 6px; }
+label { display: block; font-size: 14px; margin-bottom: 4px; }
+select, input[type="range"], button { width: 100%; }
+
+.checkbox { display: flex; gap: 8px; align-items: center; font-size: 14px; margin: 6px 0; }
+
+.playback { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.slider-row { display: flex; gap: 8px; align-items: center; }
+.timestamp { margin-top: 6px; font-size: 12px; color: #6b7280; }
+
+.legend { margin-top: 16px; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
+.legend-title { font-weight: 600; margin-bottom: 6px; }
+.legend-item { display: flex; gap: 8px; align-items: center; font-size: 14px; margin: 6px 0; }
+.chip { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+.chip.route { background: #2563eb; }
+.chip.congestion { background: #ef4444; }
+.chip.reroute { background: #f59e0b; }
+.chip.incident { background: #10b981; }
+
+button { background: #111827; color: white; border: none; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+button[disabled] { background: #9ca3af; cursor: not-allowed; }
+select { padding: 8px; border: 1px solid #e5e7eb; border-radius: 8px; }
+
+pre { background: #f9fafb; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; max-height: 200px; overflow: auto; }
+
+@media (max-width: 900px) {
+  #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  #sidebar { border-right: none; border-bottom: 1px solid #e5e7eb; }
+  #map { height: 70vh; }
+}
