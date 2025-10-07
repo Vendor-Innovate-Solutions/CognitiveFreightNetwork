@@ -5,6 +5,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { SimulationData, Route, RouteEvent } from "@/types/route";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import RouteMapFallback from "./RouteMapFallback";
 
 // Note: In production, this should be an environment variable
 // For demo purposes, using a placeholder
@@ -37,7 +38,7 @@ const getEventColor = (severity?: string): string => {
   return severity ? colors[severity] : "#3B82F6";
 };
 
-export default function RouteSimulatorMap({
+function RouteSimulatorMapInner({
   simulationData,
   height = "600px",
   className = "",
@@ -73,13 +74,6 @@ export default function RouteSimulatorMap({
 
   useEffect(() => {
     if (!mapContainer.current) return;
-    
-    // Check for Mapbox token
-    if (!MAPBOX_TOKEN) {
-      setError("Mapbox token not configured. Please set NEXT_PUBLIC_MAPBOX_TOKEN environment variable.");
-      setIsLoading(false);
-      return;
-    }
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -383,4 +377,13 @@ export default function RouteSimulatorMap({
       </CardContent>
     </Card>
   );
+}
+
+export default function RouteSimulatorMap(props: RouteSimulatorMapProps) {
+  // If no Mapbox token, show fallback
+  if (!MAPBOX_TOKEN) {
+    return <RouteMapFallback simulationData={props.simulationData} height={props.height} />;
+  }
+
+  return <RouteSimulatorMapInner {...props} />;
 }
