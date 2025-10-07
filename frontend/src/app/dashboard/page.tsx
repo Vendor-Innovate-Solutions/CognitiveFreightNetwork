@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import SmartChart from "@/components/dashboard/SmartChart";
+import RouteSimulatorMap from "@/components/dashboard/RouteSimulatorMap";
 import { mockBarChartData, mockChartData } from "@/data/ChartMockData";
+import { mockSimulationData } from "@/data/RouteSimulationData";
 
 export default function DashboardPage() {
   const [chartData, setChartData] = useState<typeof mockChartData | null>(null);
@@ -29,6 +31,11 @@ export default function DashboardPage() {
           <p className="text-lg text-muted-foreground">
             Real-time logistics intelligence and predictive analytics
           </p>
+        </div>
+
+        {/* Route Simulator Map */}
+        <div className="mb-8">
+          <RouteSimulatorMap simulationData={mockSimulationData} height="700px" />
         </div>
 
         {/* Chart Grid */}
