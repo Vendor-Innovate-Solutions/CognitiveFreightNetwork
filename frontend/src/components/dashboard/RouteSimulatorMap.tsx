@@ -229,7 +229,9 @@ function RouteSimulatorMapInner({
       .addTo(map.current);
 
     el.addEventListener("mouseenter", () => {
-      popup.addTo(map.current!);
+      if (map.current) {
+        popup.addTo(map.current);
+      }
     });
 
     el.addEventListener("click", () => {
