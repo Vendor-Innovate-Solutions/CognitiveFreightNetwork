@@ -11,3 +11,16 @@ starlette==0.48.0
 typing-inspection==0.4.1
 typing_extensions==4.15.0
 uvicorn==0.37.0
+
+# AI/ML and Optimization
+numpy==2.1.0
+scikit-learn==1.5.1
+pulp==2.9.0
+scipy==1.14.0
+
+# Data processing
+pandas==2.2.2
+openpyxl==3.1.5
+
+# Additional utilities
+python-dateutil==2.9.0

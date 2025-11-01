@@ -82,8 +82,8 @@ function RouteSimulatorMapInner({
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: "mapbox://styles/mapbox/dark-v11",
-        center: [-100, 38], // Center of US
-        zoom: 4,
+        center: [86.5, 22.5], // Eastern India (Bay of Bengal region)
+        zoom: 6,
       });
 
       map.current.on("load", () => {
@@ -278,11 +278,11 @@ function RouteSimulatorMapInner({
           <div className="flex gap-4 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-8 h-1 bg-[#F97316] border-2 border-dashed border-[#F97316]"></div>
-              <span className="text-muted-foreground">Actual Route</span>
+              <span className="text-muted-foreground">Traditional Route</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-1 bg-[#10B981]"></div>
-              <span className="text-muted-foreground">Optimized Route</span>
+              <span className="text-muted-foreground">AI-Optimized Route</span>
             </div>
           </div>
         </div>
@@ -360,15 +360,15 @@ function RouteSimulatorMapInner({
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div>
                   <p className="text-muted-foreground">Time Saved</p>
-                  <p className="font-semibold text-success">12 hours</p>
+                  <p className="font-semibold text-success">4 hours</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Distance Saved</p>
-                  <p className="font-semibold text-success">300 km</p>
+                  <p className="font-semibold text-success">55 km</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Cost Saved</p>
-                  <p className="font-semibold text-success">$600</p>
+                  <p className="font-semibold text-success">₹40,000</p>
                 </div>
               </div>
             </div>

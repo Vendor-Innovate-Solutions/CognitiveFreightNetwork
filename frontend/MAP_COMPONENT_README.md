@@ -38,8 +38,10 @@ npm install mapbox-gl react-map-gl @types/mapbox-gl
 3. Add it to your `.env.local` file:
 
 ```
-NEXT_PUBLIC_MAPBOX_TOKEN=your_mapbox_token_here
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoidmVua2F0ZXNoMjFiaXQiLCJhIjoiY21nbmI4OWh1MDEwNzJscTRieWZhZTVxNiJ9.Js6FhT2ViFO69pghJIl_Cw
 ```
+
+✅ **Status: CONFIGURED** - Your Mapbox token has been set up!
 
 ### 3. Import and Use
 

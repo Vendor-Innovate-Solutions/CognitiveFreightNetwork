@@ -1,56 +1,48 @@
 import { SimulationData } from "@/types/route";
 
-// Sample route from Los Angeles to Chicago
+// Railway route from Paradip Port to Jamshedpur Steel Plant (Eastern India)
 export const mockSimulationData: SimulationData = {
   routes: [
     {
       id: "actual-route-1",
-      name: "Actual Route",
+      name: "Traditional Railway Route",
       type: "actual",
       coordinates: [
-        { latitude: 34.0522, longitude: -118.2437 }, // Los Angeles
-        { latitude: 34.4208, longitude: -114.0723 }, // Near Needles, CA
-        { latitude: 35.0844, longitude: -110.9741 }, // Near Holbrook, AZ
-        { latitude: 35.4676, longitude: -108.7453 }, // Near Grants, NM
-        { latitude: 35.0844, longitude: -106.6504 }, // Albuquerque, NM
-        { latitude: 35.1983, longitude: -101.9453 }, // Amarillo, TX
-        { latitude: 35.4676, longitude: -97.5164 },  // Oklahoma City, OK
-        { latitude: 36.1540, longitude: -95.9928 },  // Tulsa, OK
-        { latitude: 37.0902, longitude: -94.5133 },  // Joplin, MO
-        { latitude: 38.5767, longitude: -92.1735 },  // Jefferson City, MO
-        { latitude: 39.7817, longitude: -89.6501 },  // Springfield, IL
-        { latitude: 40.6331, longitude: -89.3985 },  // Peoria, IL
-        { latitude: 41.8781, longitude: -87.6298 },  // Chicago, IL
+        { latitude: 20.2606, longitude: 86.6944 }, // Paradip Port, Odisha
+        { latitude: 20.4726, longitude: 86.3029 }, // Cuttack
+        { latitude: 20.9517, longitude: 85.0985 }, // Bhubaneswar Junction
+        { latitude: 21.4668, longitude: 84.9812 }, // Angul
+        { latitude: 21.9546, longitude: 84.0417 }, // Rourkela Junction
+        { latitude: 22.5645, longitude: 84.3803 }, // Ranchi approach
+        { latitude: 22.8046, longitude: 86.2029 }, // Bokaro Steel City
+        { latitude: 23.3441, longitude: 85.3096 }, // Adityapur
+        { latitude: 23.6693, longitude: 85.3067 }, // Jamshedpur Steel Plant
       ],
       stats: {
-        duration: "48 hours",
-        distance: "2,500 km",
-        cost: 3200,
+        duration: "18 hours",
+        distance: "420 km",
+        cost: 175000, // ₹1,75,000
       },
       color: "#F97316",
       style: "dashed",
     },
     {
       id: "optimized-route-1",
-      name: "Optimized Route",
+      name: "AI-Optimized Railway Route",
       type: "optimized",
       coordinates: [
-        { latitude: 34.0522, longitude: -118.2437 }, // Los Angeles
-        { latitude: 35.1983, longitude: -114.8199 }, // Las Vegas, NV
-        { latitude: 36.1699, longitude: -115.1398 }, // Near Las Vegas
-        { latitude: 37.0902, longitude: -112.5263 }, // Near Cedar City, UT
-        { latitude: 38.5733, longitude: -109.5498 }, // Near Moab, UT
-        { latitude: 39.5501, longitude: -105.7821 }, // Denver, CO
-        { latitude: 40.2338, longitude: -103.7077 }, // Near Sterling, CO
-        { latitude: 40.8136, longitude: -99.0876 },  // Near Kearney, NE
-        { latitude: 41.2565, longitude: -95.9345 },  // Omaha, NE
-        { latitude: 41.5868, longitude: -93.6250 },  // Des Moines, IA
-        { latitude: 41.8781, longitude: -87.6298 },  // Chicago, IL
+        { latitude: 20.2606, longitude: 86.6944 }, // Paradip Port, Odisha
+        { latitude: 20.7099, longitude: 85.8314 }, // Dhenkanal (bypass)
+        { latitude: 21.4668, longitude: 83.9812 }, // Sambalpur (direct route)
+        { latitude: 22.0797, longitude: 84.6056 }, // Raigarh
+        { latitude: 22.2543, longitude: 84.9119 }, // Ranchi bypass route
+        { latitude: 23.3441, longitude: 85.3096 }, // Adityapur
+        { latitude: 23.6693, longitude: 85.3067 }, // Jamshedpur Steel Plant
       ],
       stats: {
-        duration: "36 hours",
-        distance: "2,200 km",
-        cost: 2600,
+        duration: "14 hours",
+        distance: "365 km",
+        cost: 135000, // ₹1,35,000
       },
       color: "#10B981",
       style: "solid",
@@ -60,57 +52,57 @@ export const mockSimulationData: SimulationData = {
     {
       id: "event-1",
       type: "origin",
-      location: { latitude: 34.0522, longitude: -118.2437 },
-      title: "Origin: Los Angeles Port",
-      description: "Shipment started from Los Angeles",
-      timestamp: "2025-01-15T08:00:00Z",
+      location: { latitude: 20.2606, longitude: 86.6944 },
+      title: "Origin: Paradip Port",
+      description: "60 MT railway rake loaded with coking coal from vessel MV Sagar Ratna",
+      timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
     },
     {
       id: "event-2",
       type: "congestion",
-      location: { latitude: 35.1983, longitude: -101.9453 },
-      title: "Heavy Traffic Detected",
-      description: "Predicted 8-hour delay due to highway construction",
-      timestamp: "2025-01-15T18:00:00Z",
+      location: { latitude: 20.9517, longitude: 85.0985 },
+      title: "Track Congestion Alert",
+      description: "Heavy goods traffic at Bhubaneswar Junction - 3 hour delay predicted",
+      timestamp: new Date(Date.now() - 15 * 60 * 60 * 1000).toISOString(),
       severity: "high",
     },
     {
       id: "event-3",
       type: "reroute",
-      location: { latitude: 36.1699, longitude: -115.1398 },
-      title: "AI-Recommended Reroute",
-      description: "Route optimized through Denver to avoid congestion",
-      timestamp: "2025-01-15T12:00:00Z",
+      location: { latitude: 21.4668, longitude: 83.9812 },
+      title: "AI Reroute via Sambalpur",
+      description: "System detected congestion and rerouted through Sambalpur, avoiding Bhubaneswar",
+      timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
       severity: "medium",
     },
     {
       id: "event-4",
       type: "checkpoint",
-      location: { latitude: 39.5501, longitude: -105.7821 },
-      title: "Checkpoint: Denver Hub",
-      description: "Quick fuel and inspection stop",
-      timestamp: "2025-01-16T02:00:00Z",
+      location: { latitude: 22.2543, longitude: 84.9119 },
+      title: "Checkpoint: Ranchi Bypass",
+      description: "Rake inspection complete - running 2 hours ahead of schedule",
+      timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
     },
     {
       id: "event-5",
       type: "delay",
-      location: { latitude: 38.5767, longitude: -92.1735 },
-      title: "Weather Delay Averted",
-      description: "Optimized route avoided storm system",
-      timestamp: "2025-01-16T10:00:00Z",
+      location: { latitude: 22.8046, longitude: 86.2029 },
+      title: "Delay Avoided - Bokaro Junction",
+      description: "AI route avoided 5-hour delay due to track maintenance at Bokaro",
+      timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
       severity: "low",
     },
     {
       id: "event-6",
       type: "destination",
-      location: { latitude: 41.8781, longitude: -87.6298 },
-      title: "Destination: Chicago Warehouse",
-      description: "Shipment delivered successfully",
-      timestamp: "2025-01-16T20:00:00Z",
+      location: { latitude: 23.6693, longitude: 85.3067 },
+      title: "Destination: Jamshedpur Steel Plant",
+      description: "Coking coal delivered 4 hours early - Cost saved: ₹40,000",
+      timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
     },
   ],
   metadata: {
-    simulationDate: "2025-01-15",
-    description: "Los Angeles to Chicago freight route comparison",
+    simulationDate: new Date().toISOString().split('T')[0],
+    description: "Paradip Port to Jamshedpur Steel Plant - Railway freight route comparison",
   },
 };

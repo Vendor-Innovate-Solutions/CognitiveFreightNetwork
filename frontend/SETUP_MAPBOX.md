@@ -52,8 +52,10 @@ touch .env.local
 2. Add your Mapbox token to `.env.local`:
 
 ```
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoieW91cl91c2VybmFtZSIsImEiOiJjbHh4eHh4eHh4In0.xxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoidmVua2F0ZXNoMjFiaXQiLCJhIjoiY21nbmI4OWh1MDEwNzJscTRieWZhZTVxNiJ9.Js6FhT2ViFO69pghJIl_Cw
 ```
+
+✅ **Status: CONFIGURED** - Your Mapbox token has been set up in `.env.local`
 
 **Important Notes:**
 - The file must be named exactly `.env.local`
