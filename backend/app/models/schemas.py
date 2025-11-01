@@ -38,6 +38,7 @@ class CompanyRegister(BaseModel):
     password: str = Field(..., min_length=6, max_length=50)
     company_type: str = Field(..., pattern="^(Shipper|Transporter|Both)$")
     phone: Optional[str] = None
+    address: Optional[str] = None
     gstin: Optional[str] = None
     
     @validator('phone', 'gstin', pre=True)
@@ -71,6 +72,7 @@ class CompanyProfile(BaseModel):
     email: str
     company_type: str
     phone: Optional[str]
+    address: Optional[str]
     gstin: Optional[str]
     subscription_tier: str
     is_active: bool
@@ -86,8 +88,10 @@ class ShipmentPlanRequest(BaseModel):
     """Input for planning a new shipment"""
     
     # Origin & Destination
-    origin_city: str = Field(..., description="e.g., Mumbai, Maharashtra")
-    destination_city: str = Field(..., description="e.g., Delhi, Delhi")
+    origin_city: str = Field(..., description="e.g., Mumbai")
+    origin_state: str = Field(..., description="e.g., Maharashtra")
+    destination_city: str = Field(..., description="e.g., Delhi")
+    destination_state: str = Field(..., description="e.g., Delhi")
     
     # Transport details
     transport_mode: TransportMode
@@ -99,16 +103,19 @@ class ShipmentPlanRequest(BaseModel):
     cargo_value: float = Field(..., gt=0, description="Value in INR")
     
     is_fragile: bool = False
-    is_perishable: bool = False
-    requires_refrigeration: bool = False
+    is_hazardous: bool = False
+    is_perishable: Optional[bool] = False
+    requires_refrigeration: Optional[bool] = False
     
     # Timing
     pickup_datetime: datetime
+    delivery_deadline: Optional[datetime] = None
     
     # Optional preferences
-    prefer_fastest: bool = True  # vs cheapest
-    avoid_toll_roads: bool = False
-    prefer_highways: bool = True
+    preference: Optional[str] = "balanced"  # fastest, cheapest, safest, balanced
+    prefer_fastest: Optional[bool] = True  # vs cheapest
+    avoid_toll_roads: Optional[bool] = False
+    prefer_highways: Optional[bool] = True
     
     # Custom waypoints
     waypoints: Optional[List[str]] = None

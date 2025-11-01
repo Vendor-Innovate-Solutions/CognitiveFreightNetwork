@@ -33,6 +33,12 @@ class GoogleMapsService:
             if data['status'] == 'OK' and data['results']:
                 location = data['results'][0]['geometry']['location']
                 return location['lat'], location['lng']
+            else:
+                print(f"🚨 Geocoding API Error: {data.get('status')}")
+                print(f"Error message: {data.get('error_message', 'No error message')}")
+        else:
+            print(f"🚨 Geocoding HTTP Error: {response.status_code}")
+            print(f"Response: {response.text}")
         
         # Fallback to approximate coordinates for major cities
         return self._get_fallback_coordinates(city_name)
@@ -74,12 +80,17 @@ class GoogleMapsService:
         response = requests.get(url, params=params)
         
         if response.status_code != 200:
+            print(f"🚨 Google Maps API HTTP Error: {response.status_code}")
+            print(f"Response: {response.text}")
             raise Exception(f"Google Maps API error: {response.status_code}")
         
         data = response.json()
         
         if data['status'] != 'OK':
-            raise Exception(f"Google Maps error: {data.get('status')}")
+            print(f"🚨 Google Maps API Status Error: {data.get('status')}")
+            print(f"Error message: {data.get('error_message', 'No error message')}")
+            print(f"Full response: {data}")
+            raise Exception(f"Google Maps error: {data.get('status')} - {data.get('error_message', 'No details')}")
         
         # Parse routes
         routes = []

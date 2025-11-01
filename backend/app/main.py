@@ -1,9 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
 
 from app.api import new_routes
-from app.models.database import init_db
+from app.models.database import init_db, USE_MONGODB
 from app.services.ml_models import cost_model
 
 @asynccontextmanager
@@ -12,6 +17,12 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting Cognitive Freight Network API...")
     init_db()
+    
+    if USE_MONGODB:
+        print("📊 Using MongoDB database")
+    else:
+        print("📊 Using SQLAlchemy database")
+    
     print("✅ Database initialized")
     
     # Try to load existing ML models
@@ -52,9 +63,11 @@ app.include_router(new_routes.router)
 
 @app.get("/")
 def read_root():
+    db_type = "MongoDB" if USE_MONGODB else "SQLAlchemy"
     return {
         "message": "Cognitive Freight Network API - AI-Powered Logistics",
         "version": "2.0.0",
+        "database": db_type,
         "docs": "/docs",
         "health": "/health",
         "features": [

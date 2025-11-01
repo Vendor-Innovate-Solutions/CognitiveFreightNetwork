@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
@@ -23,12 +23,20 @@ export default function PlanShipmentPage() {
     pickup_datetime: new Date().toISOString().slice(0, 16),
     delivery_deadline: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 16),
     transport_mode: 'Road',
+    vehicle_type: 'Medium Truck (7.5-16T)',
     preference: 'balanced',
   });
 
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Handle authentication redirect
+  useEffect(() => {
+    if (!company) {
+      router.push('/login');
+    }
+  }, [company, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -51,6 +59,11 @@ export default function PlanShipmentPage() {
     try {
       const result = await apiClient.planShipment(formData, token || undefined);
       setRoutes(result.routes);
+      
+      // Show success message and redirect to dashboard after 2 seconds
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to plan shipment');
     } finally {
@@ -58,9 +71,15 @@ export default function PlanShipmentPage() {
     }
   };
 
+  // Show loading state while checking authentication
   if (!company) {
-    router.push('/login');
-    return null;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl font-semibold text-slate-700">🔄 Checking authentication...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -216,6 +235,26 @@ export default function PlanShipmentPage() {
                     <option value="Air">Air</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-800 mb-2">
+                    Vehicle Type *
+                  </label>
+                  <select
+                    name="vehicle_type"
+                    value={formData.vehicle_type}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+                  >
+                    <option value="Small Truck (<7.5T)">Small Truck (&lt;7.5T)</option>
+                    <option value="Medium Truck (7.5-16T)">Medium Truck (7.5-16T)</option>
+                    <option value="Heavy Truck (16-25T)">Heavy Truck (16-25T)</option>
+                    <option value="Multi-Axle (>25T)">Multi-Axle (&gt;25T)</option>
+                    <option value="20ft Container">20ft Container</option>
+                    <option value="40ft Container">40ft Container</option>
+                    <option value="Rail Wagon">Rail Wagon</option>
+                    <option value="Cargo Aircraft">Cargo Aircraft</option>
+                  </select>
+                </div>
               </div>
 
               {/* Checkboxes */}
@@ -310,7 +349,7 @@ export default function PlanShipmentPage() {
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-slate-900">Route Options</h2>
             
-            {routes.length === 0 && !isLoading && (
+            {(!routes || routes.length === 0) && !isLoading && (
               <Card className="p-8 text-center bg-white shadow-lg border-2 border-slate-200">
                 <p className="text-lg font-bold text-slate-700 mb-2">🗺️ No routes yet</p>
                 <p className="text-sm text-slate-600 font-medium">Fill in the form and click "Find Best Routes" to see optimized route options</p>
@@ -326,21 +365,30 @@ export default function PlanShipmentPage() {
               </Card>
             )}
 
-            {routes.map((route, index) => (
+            {routes && routes.length > 0 && (
+              <Card className="p-4 bg-green-50 border-2 border-green-300 mb-4">
+                <div className="text-center">
+                  <p className="text-green-800 font-bold">✅ Routes planned successfully!</p>
+                  <p className="text-green-700 text-sm">Redirecting to dashboard in 2 seconds...</p>
+                </div>
+              </Card>
+            )}
+
+            {routes && routes.map((route, index) => (
               <Card key={route.route_id} className="p-6 bg-white shadow-lg border-2 border-slate-200 hover:border-blue-300 transition">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-lg font-bold text-slate-900">
                       {index === 0 ? '🏆 ' : ''} Route Option {index + 1}
                     </h3>
-                    <p className="text-sm text-slate-600 font-semibold">Rank: #{route.rank}</p>
+                    <p className="text-sm text-slate-600 font-semibold">Cost Rank: #{route.cost_rank}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-blue-600">
-                      ₹{route.total_cost.toLocaleString()}
+                      ₹{route.cost_breakdown.total_estimated_cost.toLocaleString()}
                     </p>
                     <p className="text-sm text-slate-600 font-semibold">
-                      {route.total_time_hours.toFixed(1)}h • {route.total_distance_km.toFixed(0)}km
+                      {route.estimated_time_hours.toFixed(1)}h • {route.total_distance_km.toFixed(0)}km
                     </p>
                   </div>
                 </div>
@@ -359,7 +407,7 @@ export default function PlanShipmentPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-700 font-medium">Labor:</span>
-                      <span className="font-bold text-slate-900">₹{route.cost_breakdown.labor_cost.toLocaleString()}</span>
+                      <span className="font-bold text-slate-900">₹{route.cost_breakdown.driver_wages.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-700 font-medium">Insurance:</span>
@@ -370,25 +418,25 @@ export default function PlanShipmentPage() {
 
                 {/* Risk Assessment */}
                 <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-4">
-                  <h4 className="font-bold text-sm mb-2 text-yellow-900">⚠️ Risk Score: {route.risk_assessment.overall_risk_score}/10</h4>
+                  <h4 className="font-bold text-sm mb-2 text-yellow-900">⚠️ Risk Level: {route.risk_assessment.risk_level}</h4>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-yellow-800 font-medium">Delay Risk:</span>
-                      <span className="font-bold text-yellow-900">{route.risk_assessment.delay_risk.score}/10</span>
+                      <span className="font-bold text-yellow-900">{(route.risk_assessment.delay_risk * 10).toFixed(1)}/10</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-yellow-800 font-medium">Damage Risk:</span>
-                      <span className="font-bold text-yellow-900">{route.risk_assessment.damage_risk.score}/10</span>
+                      <span className="font-bold text-yellow-900">{(route.risk_assessment.damage_risk * 10).toFixed(1)}/10</span>
                     </div>
                   </div>
                 </div>
 
-                {/* AI Recommendations */}
-                {route.ai_recommendations.length > 0 && (
+                {/* Risk Mitigation */}
+                {route.risk_assessment.mitigation_recommendations.length > 0 && (
                   <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
-                    <h4 className="font-bold text-sm mb-2 text-green-900">🤖 AI Recommendations</h4>
+                    <h4 className="font-bold text-sm mb-2 text-green-900">🛡️ Risk Mitigation</h4>
                     <ul className="text-sm space-y-1">
-                      {route.ai_recommendations.slice(0, 3).map((rec, i) => (
+                      {route.risk_assessment.mitigation_recommendations.slice(0, 3).map((rec, i) => (
                         <li key={i} className="text-green-800 font-medium">• {rec}</li>
                       ))}
                     </ul>

@@ -37,6 +37,7 @@ export interface Route {
   };
   color: string;
   style: "solid" | "dashed";
+  description?: string;
 }
 
 export interface SimulationData {

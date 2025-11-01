@@ -16,6 +16,8 @@ python-multipart==0.0.9
 
 # Database
 sqlalchemy==2.0.23
+pymongo==4.15.3
+motor==3.7.1
 
 # Authentication
 python-jose[cryptography]==3.3.0
@@ -34,6 +36,8 @@ openpyxl==3.1.5
 
 # API Integration
 requests==2.31.0
+aiohttp==3.9.1
+python-dotenv==1.0.0
 
 # Additional utilities
 python-dateutil==2.9.0

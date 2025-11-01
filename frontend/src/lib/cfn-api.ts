@@ -17,20 +17,25 @@ export interface ShipmentPlanRequest {
   pickup_datetime: string;
   delivery_deadline: string;
   transport_mode: string;
+  vehicle_type: string;
   preference?: 'fastest' | 'cheapest' | 'safest' | 'balanced';
 }
 
 export interface RouteOption {
   route_id: string;
-  rank: number;
-  total_cost: number;
-  total_time_hours: number;
+  route_name: string;
   total_distance_km: number;
-  route_segments: RouteSegment[];
+  estimated_time_hours: number;
+  segments: RouteSegment[];
   cost_breakdown: CostBreakdown;
   risk_assessment: RiskAssessment;
   weather_forecast: WeatherInfo[];
-  ai_recommendations: string[];
+  cost_rank: number;
+  time_rank: number;
+  safety_rank: number;
+  overall_score: number;
+  is_recommended: boolean;
+  recommendation_reason: string;
 }
 
 export interface RouteSegment {
@@ -46,19 +51,27 @@ export interface RouteSegment {
 export interface CostBreakdown {
   fuel_cost: number;
   toll_charges: number;
-  labor_cost: number;
-  maintenance_cost: number;
+  driver_wages: number;
+  vehicle_maintenance: number;
   insurance_cost: number;
-  overhead: number;
+  loading_unloading: number;
+  permits_and_docs: number;
+  contingency: number;
+  total_estimated_cost: number;
+  cost_per_km: number;
+  cost_per_ton: number;
+  confidence_level: number;
 }
 
 export interface RiskAssessment {
   overall_risk_score: number;
-  delay_risk: { score: number; factors: string[] };
-  damage_risk: { score: number; factors: string[] };
-  theft_risk: { score: number; factors: string[] };
-  weather_risk: { score: number; factors: string[] };
-  mitigation_steps: string[];
+  risk_level: string;
+  delay_risk: number;
+  damage_risk: number;
+  theft_risk: number;
+  weather_risk: number;
+  risk_factors: string[];
+  mitigation_recommendations: string[];
 }
 
 export interface WeatherInfo {
@@ -202,6 +215,59 @@ class APIClient {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || 'Failed to plan shipment');
+    }
+
+    const result = await response.json();
+    // Map the backend response to what the frontend expects
+    return {
+      routes: result.route_options || []
+    };
+  }
+
+  // ==================== SHIPMENT MANAGEMENT ====================
+
+  async getShipments(token?: string, limit = 50, offset = 0, status?: string) {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+    });
+    
+    if (status) {
+      params.append('status', status);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/shipments?${params}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch shipments');
+    }
+
+    return response.json();
+  }
+
+  async getShipmentDetails(shipmentId: number, token?: string) {
+    const response = await fetch(`${API_BASE_URL}/shipments/${shipmentId}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch shipment details');
+    }
+
+    return response.json();
+  }
+
+  // ==================== ANALYTICS ====================
+
+  async getAnalytics(token?: string, period = '30d') {
+    const response = await fetch(`${API_BASE_URL}/analytics/dashboard?period=${period}`, {
+      headers: this.getAuthHeaders(token),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch analytics');
     }
 
     return response.json();
