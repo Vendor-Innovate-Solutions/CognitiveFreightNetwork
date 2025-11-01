@@ -1,11 +1,36 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import router
+from contextlib import asynccontextmanager
+
+from app.api import new_routes
+from app.models.database import init_db
+from app.services.ml_models import cost_model
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events"""
+    # Startup
+    print("🚀 Starting Cognitive Freight Network API...")
+    init_db()
+    print("✅ Database initialized")
+    
+    # Try to load existing ML models
+    try:
+        cost_model.load_model()
+        print("✅ ML models loaded")
+    except:
+        print("⚠️  No pre-trained models found - will train on first use")
+    
+    yield
+    
+    # Shutdown
+    print("👋 Shutting down...")
 
 app = FastAPI(
-    title="AI-Enabled Logistics Optimizer API",
-    description="REST API for steel supply chain optimization",
-    version="1.0.0"
+    title="Cognitive Freight Network API",
+    description="AI-Powered Logistics Planning & Optimization Platform",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Configure CORS to allow frontend connections
@@ -15,19 +40,31 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
+        "*"  # For development - restrict in production
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(router)
+# Include routers
+app.include_router(new_routes.router)
 
 @app.get("/")
 def read_root():
     return {
-        "message": "AI-Enabled Logistics Optimizer API is running!",
-        "version": "1.0.0",
+        "message": "Cognitive Freight Network API - AI-Powered Logistics",
+        "version": "2.0.0",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "features": [
+            "Company authentication & profiles",
+            "AI-powered route optimization",
+            "Real-time cost prediction with ML",
+            "Multi-objective path finding",
+            "Weather-aware routing",
+            "Risk assessment & mitigation",
+            "Historical data learning",
+            "Google Maps & Weather API integration"
+        ]
     }
