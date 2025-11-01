@@ -48,6 +48,18 @@ function RouteSimulatorMapInner({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [weatherAlongRoute, setWeatherAlongRoute] = useState<
+    {
+      latitude: number;
+      longitude: number;
+      temperature?: number;
+      windspeed?: number;
+      winddirection?: number;
+      weathercode?: number;
+    }[]
+  >([]);
+  // simple in-memory cache to avoid refetching same coordinate repeatedly
+  const weatherCache = useRef<Record<string, any>>({});
 
   const fitMapToRoutes = React.useCallback(() => {
     if (!map.current) return;
@@ -191,6 +203,7 @@ function RouteSimulatorMapInner({
         map.current.getCanvas().style.cursor = "";
       }
       setSelectedRoute(null);
+      setWeatherAlongRoute([]);
     });
   };
 
@@ -236,6 +249,67 @@ function RouteSimulatorMapInner({
       marker.togglePopup();
     });
   };
+
+  // fetch current weather for a set of sampled coordinates along the route
+  const fetchWeatherForRoute = async (route: Route | null) => {
+    if (!route) {
+      setWeatherAlongRoute([]);
+      return;
+    }
+
+    const coords = route.coordinates || [];
+    if (!coords.length) return;
+
+    // sample up to 8 points along the route to avoid too many requests
+    const maxPoints = 8;
+    const step = Math.max(1, Math.floor(coords.length / maxPoints));
+    const sampled = coords.filter((_, i) => i % step === 0);
+
+    const results: any[] = [];
+
+    await Promise.all(
+      sampled.map(async (pt) => {
+        const key = `${pt.latitude.toFixed(5)},${pt.longitude.toFixed(5)}`;
+        if (weatherCache.current[key]) {
+          results.push({
+            latitude: pt.latitude,
+            longitude: pt.longitude,
+            ...weatherCache.current[key],
+          });
+          return;
+        }
+
+        try {
+          // Open-Meteo provides free current weather without an API key
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.latitude}&longitude=${pt.longitude}&current_weather=true`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("weather fetch failed");
+          const json = await res.json();
+          const cw = json.current_weather || {};
+          weatherCache.current[key] = cw;
+          results.push({
+            latitude: pt.latitude,
+            longitude: pt.longitude,
+            temperature: cw.temperature,
+            windspeed: cw.windspeed,
+            winddirection: cw.winddirection,
+            weathercode: cw.weathercode,
+          });
+        } catch (err) {
+          // silent fail for individual points
+          results.push({ latitude: pt.latitude, longitude: pt.longitude });
+        }
+      })
+    );
+
+    setWeatherAlongRoute(results);
+  };
+
+  // When selectedRoute changes, fetch weather for sampled points
+  useEffect(() => {
+    fetchWeatherForRoute(selectedRoute);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoute]);
 
   if (error) {
     return (
@@ -325,13 +399,73 @@ function RouteSimulatorMapInner({
                   {selectedRoute.stats.cost.toLocaleString()}
                 </p>
               )}
+              {/* Weather along route */}
+              {weatherAlongRoute.length > 0 && (
+                <div className="mt-3">
+                  <p className="font-semibold">Weather along route</p>
+                  <div className="mt-2 space-y-2 text-xs text-muted-foreground max-h-40 overflow-auto">
+                    {weatherAlongRoute.map((w, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-foreground">Point {idx + 1}</div>
+                          <div className="text-muted-foreground">{w.latitude.toFixed(3)}, {w.longitude.toFixed(3)}</div>
+                        </div>
+                        <div className="text-right">
+                          {typeof w.temperature !== "undefined" ? (
+                            <div className="font-semibold">{w.temperature}°C</div>
+                          ) : (
+                            <div className="text-muted-foreground">N/A</div>
+                          )}
+                          {typeof w.windspeed !== "undefined" && (
+                            <div className="text-muted-foreground">{w.windspeed} km/h</div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
+        {/* Weather Widget - Top Right Corner */}
+        <div className="absolute top-4 right-4 w-80 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg p-3 shadow-lg z-10">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              🌤️ Route Weather
+            </h3>
+          </div>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {[
+              { name: "Kolkata", lat: 22.57, lon: 88.36, temp: 28, weather: "☀️" },
+              { name: "Vizag", lat: 17.69, lon: 83.22, temp: 30, weather: "🌤️" },
+              { name: "Chennai", lat: 13.08, lon: 80.27, temp: 31, weather: "☁️" },
+              { name: "Paradip", lat: 20.32, lon: 86.62, temp: 29, weather: "⛅" },
+              { name: "Bay Center", lat: 15.0, lon: 85.0, temp: 27, weather: "🌊" },
+            ].map((loc, idx) => (
+              <div
+                key={idx}
+                className="bg-slate-700/60 rounded-md p-2 border border-slate-600 hover:border-slate-500 transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-xs truncate">{loc.name}</p>
+                    <p className="text-slate-400 text-xs">{loc.lat}°, {loc.lon}°</p>
+                  </div>
+                  <div className="text-center flex-shrink-0">
+                    <div className="text-xl">{loc.weather}</div>
+                    <div className="text-white font-bold text-sm">{loc.temp}°C</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Comparison Stats */}
-        <div className="absolute bottom-4 left-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-10">
-          <h3 className="font-bold text-lg mb-3 text-foreground">
+        <div className="absolute bottom-4 left-4 right-4 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg p-4 shadow-lg z-10">
+          <h3 className="font-bold text-lg mb-3 text-white">
             Route Comparison
           </h3>
           <div className="grid grid-cols-2 gap-4">
@@ -341,14 +475,14 @@ function RouteSimulatorMapInner({
                 className="border-l-4 pl-3"
                 style={{ borderColor: route.color }}
               >
-                <h4 className="font-semibold text-foreground mb-1">
+                <h4 className="font-semibold text-white mb-1">
                   {route.name}
                 </h4>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-slate-300">
                   {route.stats.duration} • {route.stats.distance}
                 </p>
                 {route.stats.cost && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-slate-300">
                     ${route.stats.cost.toLocaleString()}
                   </p>
                 )}
@@ -356,19 +490,19 @@ function RouteSimulatorMapInner({
             ))}
           </div>
           {simulationData.routes.length === 2 && (
-            <div className="mt-3 pt-3 border-t border-border">
+            <div className="mt-3 pt-3 border-t border-slate-700">
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Time Saved</p>
-                  <p className="font-semibold text-success">4 hours</p>
+                  <p className="text-slate-400">Time Saved</p>
+                  <p className="font-semibold text-white">4 hours</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Distance Saved</p>
-                  <p className="font-semibold text-success">55 km</p>
+                  <p className="text-slate-400">Distance Saved</p>
+                  <p className="font-semibold text-white">55 km</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Cost Saved</p>
-                  <p className="font-semibold text-success">₹40,000</p>
+                  <p className="text-slate-400">Cost Saved</p>
+                  <p className="font-semibold text-white">₹40,000</p>
                 </div>
               </div>
             </div>
