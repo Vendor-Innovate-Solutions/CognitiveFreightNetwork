@@ -25,6 +25,16 @@ export interface RouteEvent {
   severity?: "low" | "medium" | "high";
 }
 
+export type TransportMode = "truck" | "rail" | "ship" | "air";
+
+export interface RouteSegment {
+  id: string;
+  transportMode: TransportMode;
+  coordinates: RoutePoint[];
+  distance?: string;
+  duration?: string;
+}
+
 export interface Route {
   id: string;
   name: string;
@@ -38,6 +48,8 @@ export interface Route {
   color: string;
   style: "solid" | "dashed";
   description?: string;
+  // Multi-modal route segments (optional)
+  segments?: RouteSegment[];
 }
 
 export interface SimulationData {

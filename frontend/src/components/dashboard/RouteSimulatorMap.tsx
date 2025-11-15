@@ -3,9 +3,13 @@
 import React, { useRef, useEffect, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { SimulationData, Route, RouteEvent } from "@/types/route";
+import { SimulationData, Route, RouteEvent, RouteSegment } from "@/types/route";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import RouteMapFallback from "./RouteMapFallback";
+import { 
+  generateCurveForMode, 
+  getTransportModeStyle
+} from "@/lib/route-curves";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
@@ -56,7 +60,12 @@ function RouteSimulatorMapInner({
       weathercode?: number;
     }[]
   >([]);
-  const weatherCache = useRef<Record<string, any>>({});
+  const weatherCache = useRef<Record<string, {
+    temperature?: number;
+    windspeed?: number;
+    winddirection?: number;
+    weathercode?: number;
+  }>>({});
 
   const fitMapToRoutes = React.useCallback(() => {
     if (!map.current) return;
@@ -122,9 +131,121 @@ function RouteSimulatorMapInner({
     return () => {
       map.current?.remove();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simulationData, fitMapToRoutes]);
 
   const addRouteToMap = (route: Route) => {
+    if (!map.current) return;
+
+    // If route has multi-modal segments, render each segment separately
+    if (route.segments && route.segments.length > 0) {
+      route.segments.forEach((segment, index) => {
+        addRouteSegmentToMap(segment, route, index);
+      });
+    } else {
+      // Legacy single-route rendering with basic styling
+      addLegacyRouteToMap(route);
+    }
+  };
+
+  const addRouteSegmentToMap = (segment: RouteSegment, parentRoute: Route, segmentIndex: number) => {
+    if (!map.current) return;
+
+    // Generate curved coordinates for sea/air, straight for road/rail
+    const curvedCoordinates = generateCurveForMode(
+      segment.transportMode,
+      segment.coordinates,
+      { numPoints: 50, curveIntensity: 0.2 }
+    );
+
+    const coordinates = curvedCoordinates.map((coord) => [
+      coord.longitude,
+      coord.latitude,
+    ]);
+
+    // Get style for this transport mode
+    const modeStyle = getTransportModeStyle(segment.transportMode);
+
+    const sourceId = `route-segment-${parentRoute.id}-${segmentIndex}`;
+    const layerId = `route-segment-layer-${parentRoute.id}-${segmentIndex}`;
+
+    // Determine layer group for proper rendering order
+    const layerGroup = segment.transportMode === 'ship' || segment.transportMode === 'air' 
+      ? 'sea-air' 
+      : 'road-rail';
+
+    map.current.addSource(sourceId, {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: {
+          name: parentRoute.name,
+          segment: segmentIndex,
+          transportMode: segment.transportMode,
+          layerGroup: layerGroup,
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: coordinates,
+        },
+      },
+    });
+
+    map.current.addLayer({
+      id: layerId,
+      type: "line",
+      source: sourceId,
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": modeStyle.color,
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5, modeStyle.width * 0.5,
+          10, modeStyle.width,
+          15, modeStyle.width * 1.5
+        ],
+        "line-dasharray": modeStyle.dashArray,
+        "line-opacity": 0.85,
+      },
+    });
+
+    // Add animation for sea/air routes
+    if (modeStyle.animated) {
+      animateRouteLine(layerId);
+    }
+
+    // Add hover interactions
+    map.current.on("mouseenter", layerId, (e) => {
+      if (map.current) {
+        map.current.getCanvas().style.cursor = "pointer";
+      }
+      if (e.features && e.features[0]?.properties) {
+        setSelectedRoute({
+          ...parentRoute,
+          stats: {
+            ...parentRoute.stats,
+            distance: segment.distance || parentRoute.stats.distance,
+            duration: segment.duration || parentRoute.stats.duration,
+          },
+        });
+      }
+    });
+
+    map.current.on("mouseleave", layerId, () => {
+      if (map.current) {
+        map.current.getCanvas().style.cursor = "";
+      }
+      setSelectedRoute(null);
+      setWeatherAlongRoute([]);
+    });
+  };
+
+  const addLegacyRouteToMap = (route: Route) => {
     if (!map.current) return;
 
     const coordinates = route.coordinates.map((coord) => [
@@ -163,7 +284,14 @@ function RouteSimulatorMapInner({
       },
       paint: {
         "line-color": route.color,
-        "line-width": 4,
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5, 2,
+          10, 4,
+          15, 6
+        ],
         "line-dasharray": route.style === "dashed" ? [2, 2] : [1, 0],
         "line-opacity": 0.9,
       },
@@ -193,6 +321,37 @@ function RouteSimulatorMapInner({
       setSelectedRoute(null);
       setWeatherAlongRoute([]);
     });
+  };
+
+  const animateRouteLine = (layerId: string) => {
+    if (!map.current) return;
+
+    let dashOffset = 0;
+
+    const animate = () => {
+      if (!map.current) return;
+
+      dashOffset -= 0.5;
+      if (dashOffset < -100) {
+        dashOffset = 0;
+      }
+
+      try {
+        map.current.setPaintProperty(layerId, "line-dasharray", [4, 4]);
+        map.current.setPaintProperty(layerId, "line-dasharray", [
+          Math.abs(dashOffset % 8),
+          8 - Math.abs(dashOffset % 8),
+        ]);
+      } catch {
+        // Layer might not exist anymore
+        return;
+      }
+
+      requestAnimationFrame(animate);
+    };
+
+    // Start animation
+    requestAnimationFrame(animate);
   };
 
   const addEventMarker = (event: RouteEvent) => {
@@ -248,7 +407,14 @@ function RouteSimulatorMapInner({
     const step = Math.max(1, Math.floor(coords.length / maxPoints));
     const sampled = coords.filter((_, i) => i % step === 0);
 
-    const results: any[] = [];
+    const results: {
+      latitude: number;
+      longitude: number;
+      temperature?: number;
+      windspeed?: number;
+      winddirection?: number;
+      weathercode?: number;
+    }[] = [];
 
     await Promise.all(
       sampled.map(async (pt) => {
@@ -277,7 +443,7 @@ function RouteSimulatorMapInner({
             winddirection: cw.winddirection,
             weathercode: cw.weathercode,
           });
-        } catch (err) {
+        } catch {
           results.push({ latitude: pt.latitude, longitude: pt.longitude });
         }
       })
@@ -288,7 +454,6 @@ function RouteSimulatorMapInner({
 
   useEffect(() => {
     fetchWeatherForRoute(selectedRoute);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoute]);
 
   if (error) {
@@ -357,43 +522,43 @@ function RouteSimulatorMapInner({
         />
         
         {selectedRoute && (
-          <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg max-w-xs z-10">
-            <h3 className="font-bold text-lg mb-2 text-foreground">
+          <div className="absolute top-4 left-4 bg-[#1E293B]/95 backdrop-blur-sm border border-[#334155] rounded-lg p-4 shadow-lg max-w-xs z-10">
+            <h3 className="font-bold text-lg mb-2 text-[#F1F5F9]">
               {selectedRoute.name}
             </h3>
             <div className="space-y-1 text-sm">
-              <p className="text-muted-foreground">
+              <p className="text-[#94A3B8]">
                 <span className="font-semibold">Duration:</span>{" "}
                 {selectedRoute.stats.duration}
               </p>
-              <p className="text-muted-foreground">
+              <p className="text-[#94A3B8]">
                 <span className="font-semibold">Distance:</span>{" "}
                 {selectedRoute.stats.distance}
               </p>
               {selectedRoute.stats.cost && (
-                <p className="text-muted-foreground">
+                <p className="text-[#94A3B8]">
                   <span className="font-semibold">Cost:</span> ₹
                   {selectedRoute.stats.cost.toLocaleString()}
                 </p>
               )}
               {weatherAlongRoute.length > 0 && (
                 <div className="mt-3">
-                  <p className="font-semibold">Weather along route</p>
-                  <div className="mt-2 space-y-2 text-xs text-muted-foreground max-h-40 overflow-auto">
+                  <p className="font-semibold text-[#F1F5F9]">Weather along route</p>
+                  <div className="mt-2 space-y-2 text-xs text-[#94A3B8] max-h-40 overflow-auto">
                     {weatherAlongRoute.map((w, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-2">
                         <div>
-                          <div className="text-foreground">Point {idx + 1}</div>
-                          <div className="text-muted-foreground">{w.latitude.toFixed(3)}, {w.longitude.toFixed(3)}</div>
+                          <div className="text-[#F1F5F9]">Point {idx + 1}</div>
+                          <div className="text-[#94A3B8]">{w.latitude.toFixed(3)}, {w.longitude.toFixed(3)}</div>
                         </div>
                         <div className="text-right">
                           {typeof w.temperature !== "undefined" ? (
-                            <div className="font-semibold">{w.temperature}°C</div>
+                            <div className="font-semibold text-[#F1F5F9]">{w.temperature}°C</div>
                           ) : (
-                            <div className="text-muted-foreground">N/A</div>
+                            <div className="text-[#94A3B8]">N/A</div>
                           )}
                           {typeof w.windspeed !== "undefined" && (
-                            <div className="text-muted-foreground">{w.windspeed} km/h</div>
+                            <div className="text-[#94A3B8]">{w.windspeed} km/h</div>
                           )}
                         </div>
                       </div>
@@ -405,9 +570,9 @@ function RouteSimulatorMapInner({
           </div>
         )}
 
-        <div className="absolute top-4 right-4 w-80 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg p-3 shadow-lg z-10">
+        <div className="absolute top-4 right-4 w-80 bg-[#1E293B]/95 backdrop-blur-sm border border-[#334155] rounded-lg p-3 shadow-lg z-10">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+            <h3 className="font-bold text-sm text-[#F1F5F9] flex items-center gap-2">
               🌤️ Route Weather
             </h3>
           </div>
@@ -421,16 +586,16 @@ function RouteSimulatorMapInner({
             ].map((loc, idx) => (
               <div
                 key={idx}
-                className="bg-slate-700/60 rounded-md p-2 border border-slate-600 hover:border-slate-500 transition-all"
+                className="bg-[#0F172A]/60 rounded-md p-2 border border-[#334155] hover:border-[#475569] transition-all"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-xs truncate">{loc.name}</p>
-                    <p className="text-slate-400 text-xs">{loc.lat}°, {loc.lon}°</p>
+                    <p className="text-[#F1F5F9] font-semibold text-xs truncate">{loc.name}</p>
+                    <p className="text-[#94A3B8] text-xs">{loc.lat}°, {loc.lon}°</p>
                   </div>
                   <div className="text-center flex-shrink-0">
                     <div className="text-xl">{loc.weather}</div>
-                    <div className="text-white font-bold text-sm">{loc.temp}°C</div>
+                    <div className="text-[#F1F5F9] font-bold text-sm">{loc.temp}°C</div>
                   </div>
                 </div>
               </div>
@@ -438,8 +603,8 @@ function RouteSimulatorMapInner({
           </div>
         </div>
 
-        <div className="absolute bottom-4 left-4 right-4 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-lg p-4 shadow-lg z-10">
-          <h3 className="font-bold text-lg mb-3 text-white">
+        <div className="absolute bottom-4 left-4 right-4 bg-[#1E293B]/95 backdrop-blur-sm border border-[#334155] rounded-lg p-4 shadow-lg z-10">
+          <h3 className="font-bold text-lg mb-3 text-[#F1F5F9]">
             Route Comparison
           </h3>
           <div className="grid grid-cols-2 gap-4">
@@ -449,14 +614,14 @@ function RouteSimulatorMapInner({
                 className="border-l-4 pl-3"
                 style={{ borderColor: route.color }}
               >
-                <h4 className="font-semibold text-white mb-1">
+                <h4 className="font-semibold text-[#F1F5F9] mb-1">
                   {route.name}
                 </h4>
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-[#94A3B8]">
                   {route.stats.duration} • {route.stats.distance}
                 </p>
                 {route.stats.cost && (
-                  <p className="text-sm text-slate-300">
+                  <p className="text-sm text-[#94A3B8]">
                     ₹{route.stats.cost.toLocaleString()}
                   </p>
                 )}
@@ -464,19 +629,19 @@ function RouteSimulatorMapInner({
             ))}
           </div>
           {simulationData.routes.length === 2 && (
-            <div className="mt-3 pt-3 border-t border-slate-700">
+            <div className="mt-3 pt-3 border-t border-[#334155]">
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div>
-                  <p className="text-slate-400">Time Saved</p>
-                  <p className="font-semibold text-white">4 hours</p>
+                  <p className="text-[#94A3B8]">Time Saved</p>
+                  <p className="font-semibold text-[#F1F5F9]">4 hours</p>
                 </div>
                 <div>
-                  <p className="text-slate-400">Distance Saved</p>
-                  <p className="font-semibold text-white">55 km</p>
+                  <p className="text-[#94A3B8]">Distance Saved</p>
+                  <p className="font-semibold text-[#F1F5F9]">55 km</p>
                 </div>
                 <div>
-                  <p className="text-slate-400">Cost Saved</p>
-                  <p className="font-semibold text-white">₹40,000</p>
+                  <p className="text-[#94A3B8]">Cost Saved</p>
+                  <p className="font-semibold text-[#F1F5F9]">₹40,000</p>
                 </div>
               </div>
             </div>

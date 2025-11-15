@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "@shadcn/ui": "^0.0.4",
+    "@turf/bezier-spline": "^7.2.0",
+    "@turf/great-circle": "^7.2.0",
+    "@turf/line-arc": "^7.2.0",
+    "@turf/turf": "^7.2.0",
     "@types/mapbox-gl": "^3.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
