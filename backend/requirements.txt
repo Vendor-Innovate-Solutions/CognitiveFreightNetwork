@@ -42,3 +42,4 @@ geopy==2.4.1
 
 # Additional utilities
 python-dateutil==2.9.0
+psutil==5.9.8

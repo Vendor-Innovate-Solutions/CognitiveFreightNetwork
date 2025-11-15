@@ -505,11 +505,11 @@ function RouteSimulatorMapInner({
           </div>
           <div className="flex gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-[#F97316] border-2 border-dashed border-[#F97316]"></div>
+              <div className="w-8 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
               <span className="text-muted-foreground">Traditional Route</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-[#10B981]"></div>
+              <div className="w-8 h-1 bg-emerald-500"></div>
               <span className="text-muted-foreground">AI-Optimized Route</span>
             </div>
           </div>
@@ -531,43 +531,43 @@ function RouteSimulatorMapInner({
         />
         
         {selectedRoute && (
-          <div className="absolute top-4 left-4 bg-[#1E293B]/95 backdrop-blur-sm border border-[#334155] rounded-lg p-4 shadow-lg max-w-xs z-10">
-            <h3 className="font-bold text-lg mb-2 text-[#F1F5F9]">
+          <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg max-w-xs z-10">
+            <h3 className="font-bold text-lg mb-2 text-card-foreground">
               {selectedRoute.name}
             </h3>
             <div className="space-y-1 text-sm">
-              <p className="text-[#94A3B8]">
+              <p className="text-muted-foreground">
                 <span className="font-semibold">Duration:</span>{" "}
                 {selectedRoute.stats.duration}
               </p>
-              <p className="text-[#94A3B8]">
+              <p className="text-muted-foreground">
                 <span className="font-semibold">Distance:</span>{" "}
                 {selectedRoute.stats.distance}
               </p>
               {selectedRoute.stats.cost && (
-                <p className="text-[#94A3B8]">
+                <p className="text-muted-foreground">
                   <span className="font-semibold">Cost:</span> ₹
                   {selectedRoute.stats.cost.toLocaleString()}
                 </p>
               )}
               {weatherAlongRoute.length > 0 && (
                 <div className="mt-3">
-                  <p className="font-semibold text-[#F1F5F9]">Weather along route</p>
-                  <div className="mt-2 space-y-2 text-xs text-[#94A3B8] max-h-40 overflow-auto">
+                  <p className="font-semibold text-card-foreground">Weather along route</p>
+                  <div className="mt-2 space-y-2 text-xs text-muted-foreground max-h-40 overflow-auto">
                     {weatherAlongRoute.map((w, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-2">
                         <div>
-                          <div className="text-[#F1F5F9]">Point {idx + 1}</div>
-                          <div className="text-[#94A3B8]">{w.latitude.toFixed(3)}, {w.longitude.toFixed(3)}</div>
+                          <div className="text-card-foreground">Point {idx + 1}</div>
+                          <div className="text-muted-foreground">{w.latitude.toFixed(3)}, {w.longitude.toFixed(3)}</div>
                         </div>
                         <div className="text-right">
                           {typeof w.temperature !== "undefined" ? (
-                            <div className="font-semibold text-[#F1F5F9]">{w.temperature}°C</div>
+                            <div className="font-semibold text-card-foreground">{w.temperature}°C</div>
                           ) : (
-                            <div className="text-[#94A3B8]">N/A</div>
+                            <div className="text-muted-foreground">N/A</div>
                           )}
                           {typeof w.windspeed !== "undefined" && (
-                            <div className="text-[#94A3B8]">{w.windspeed} km/h</div>
+                            <div className="text-muted-foreground">{w.windspeed} km/h</div>
                           )}
                         </div>
                       </div>
@@ -579,9 +579,9 @@ function RouteSimulatorMapInner({
           </div>
         )}
 
-        <div className="absolute top-4 right-4 w-80 bg-[#1E293B]/95 backdrop-blur-sm border border-[#334155] rounded-lg p-3 shadow-lg z-10">
+        <div className="absolute top-4 right-4 w-80 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-10">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold text-sm text-[#F1F5F9] flex items-center gap-2">
+            <h3 className="font-bold text-sm text-card-foreground flex items-center gap-2">
               🌤️ Route Weather
             </h3>
           </div>
@@ -595,16 +595,16 @@ function RouteSimulatorMapInner({
             ].map((loc, idx) => (
               <div
                 key={idx}
-                className="bg-[#0F172A]/60 rounded-md p-2 border border-[#334155] hover:border-[#475569] transition-all"
+                className="bg-background/60 rounded-md p-2 border border-border hover:border-muted transition-all"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-[#F1F5F9] font-semibold text-xs truncate">{loc.name}</p>
-                    <p className="text-[#94A3B8] text-xs">{loc.lat}°, {loc.lon}°</p>
+                    <p className="text-card-foreground font-semibold text-xs truncate">{loc.name}</p>
+                    <p className="text-muted-foreground text-xs">{loc.lat}°, {loc.lon}°</p>
                   </div>
                   <div className="text-center flex-shrink-0">
                     <div className="text-xl">{loc.weather}</div>
-                    <div className="text-[#F1F5F9] font-bold text-sm">{loc.temp}°C</div>
+                    <div className="text-card-foreground font-bold text-sm">{loc.temp}°C</div>
                   </div>
                 </div>
               </div>
@@ -612,8 +612,8 @@ function RouteSimulatorMapInner({
           </div>
         </div>
 
-        <div className="absolute bottom-4 left-4 right-4 bg-[#1E293B]/95 backdrop-blur-sm border border-[#334155] rounded-lg p-4 shadow-lg z-10">
-          <h3 className="font-bold text-lg mb-3 text-[#F1F5F9]">
+        <div className="absolute bottom-4 left-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-10">
+          <h3 className="font-bold text-lg mb-3 text-card-foreground">
             Route Comparison
           </h3>
           <div className="grid grid-cols-2 gap-4">
@@ -623,14 +623,14 @@ function RouteSimulatorMapInner({
                 className="border-l-4 pl-3"
                 style={{ borderColor: route.color }}
               >
-                <h4 className="font-semibold text-[#F1F5F9] mb-1">
+                <h4 className="font-semibold text-card-foreground mb-1">
                   {route.name}
                 </h4>
-                <p className="text-sm text-[#94A3B8]">
+                <p className="text-sm text-muted-foreground">
                   {route.stats.duration} • {route.stats.distance}
                 </p>
                 {route.stats.cost && (
-                  <p className="text-sm text-[#94A3B8]">
+                  <p className="text-sm text-muted-foreground">
                     ₹{route.stats.cost.toLocaleString()}
                   </p>
                 )}
@@ -638,19 +638,19 @@ function RouteSimulatorMapInner({
             ))}
           </div>
           {simulationData.routes.length === 2 && (
-            <div className="mt-3 pt-3 border-t border-[#334155]">
+            <div className="mt-3 pt-3 border-t border-border">
               <div className="grid grid-cols-3 gap-2 text-sm">
                 <div>
-                  <p className="text-[#94A3B8]">Time Saved</p>
-                  <p className="font-semibold text-[#F1F5F9]">4 hours</p>
+                  <p className="text-muted-foreground">Time Saved</p>
+                  <p className="font-semibold text-card-foreground">4 hours</p>
                 </div>
                 <div>
-                  <p className="text-[#94A3B8]">Distance Saved</p>
-                  <p className="font-semibold text-[#F1F5F9]">55 km</p>
+                  <p className="text-muted-foreground">Distance Saved</p>
+                  <p className="font-semibold text-card-foreground">55 km</p>
                 </div>
                 <div>
-                  <p className="text-[#94A3B8]">Cost Saved</p>
-                  <p className="font-semibold text-[#F1F5F9]">₹40,000</p>
+                  <p className="text-muted-foreground">Cost Saved</p>
+                  <p className="font-semibold text-card-foreground">₹40,000</p>
                 </div>
               </div>
             </div>
