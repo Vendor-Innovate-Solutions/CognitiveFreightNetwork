@@ -21,13 +21,18 @@ from app.core.error_handling import (
     generic_exception_handler
 )
 from app.core.monitoring import health_service
+from app.core.rate_limit import rate_limit_middleware, RateLimits, cache
+from app.core.security import security_headers_middleware, get_cors_config
+
+# Get environment
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
     # Startup
     print("🚀 Starting Cognitive Freight Network API...")
-    print(f"📍 Environment: {os.getenv('ENVIRONMENT', 'development')}")
+    print(f"📍 Environment: {ENVIRONMENT}")
     
     init_db()
     
@@ -45,6 +50,9 @@ async def lifespan(app: FastAPI):
     except:
         print("⚠️  No pre-trained models found - will train on first use")
     
+    print("🔒 Security features enabled")
+    print("🚦 Rate limiting enabled")
+    print("💾 In-memory caching enabled")
     print("🔍 Health check available at /health")
     print("📊 Monitoring available at /health/detailed")
     print("✅ API ready to serve requests")
@@ -53,6 +61,8 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     print("👋 Shutting down...")
+    print("💾 Clearing cache...")
+    cache.clear()
 
 app = FastAPI(
     title="Cognitive Freight Network API",
@@ -64,19 +74,21 @@ app = FastAPI(
 # Add error handling middleware (must be first)
 app.middleware("http")(correlation_id_middleware)
 
-# Configure CORS to allow frontend connections
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "*"  # For development - restrict in production
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add security headers middleware
+app.middleware("http")(security_headers_middleware)
+
+# Add rate limiting middleware
+async def apply_rate_limiting(request: Request, call_next):
+    """Apply rate limiting with environment-specific limits"""
+    # Use generous limits for development, standard for production
+    limits = RateLimits.GENEROUS if ENVIRONMENT == "development" else RateLimits.STANDARD
+    return await rate_limit_middleware(request, call_next, **limits)
+
+app.middleware("http")(apply_rate_limiting)
+
+# Configure CORS based on environment
+cors_config = get_cors_config(ENVIRONMENT)
+app.add_middleware(CORSMiddleware, **cors_config)
 
 # Register exception handlers
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
@@ -92,6 +104,7 @@ def read_root():
     return {
         "message": "Cognitive Freight Network API - AI-Powered Logistics",
         "version": "2.0.0",
+        "environment": ENVIRONMENT,
         "database": db_type,
         "docs": "/docs",
         "health": "/health",
@@ -99,7 +112,8 @@ def read_root():
             "health_check": "/health",
             "detailed_health": "/health/detailed",
             "readiness": "/health/ready",
-            "liveness": "/health/live"
+            "liveness": "/health/live",
+            "cache_stats": "/health/cache"
         },
         "features": [
             "Company authentication & profiles",
@@ -111,7 +125,11 @@ def read_root():
             "Historical data learning",
             "Google Maps & Weather API integration",
             "Comprehensive error handling with correlation IDs",
-            "System health monitoring and metrics"
+            "System health monitoring and metrics",
+            "API rate limiting (100 req/min)",
+            "In-memory caching with TTL",
+            "Security headers (OWASP recommendations)",
+            "CORS configuration per environment"
         ]
     }
 
@@ -135,3 +153,11 @@ async def readiness_check():
 async def liveness_check():
     """Kubernetes-style liveness probe"""
     return health_service.get_liveness()
+
+@app.get("/health/cache")
+async def cache_stats():
+    """Get cache statistics"""
+    return {
+        "cache": cache.get_stats(),
+        "timestamp": datetime.utcnow().isoformat()
+    }
