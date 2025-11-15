@@ -3,6 +3,13 @@ Multi-Modal Transport Router
 Intelligently determines optimal transport modes and routes for domestic and international shipments
 Supports: Road (Truck), Rail, Sea (Ship), Air
 NO FALLBACKS - Raises errors if routes cannot be calculated
+
+Features Advanced Complexity Analysis:
+- Topography penalties (mountainous terrain)
+- Border crossing delays
+- Port efficiency & dwell time
+- Urban congestion factors
+- Seasonal impacts
 """
 
 import os
@@ -12,6 +19,7 @@ from enum import Enum
 import math
 import aiohttp
 from geopy.distance import geodesic
+from .route_complexity_analyzer import RouteComplexityAnalyzer
 
 MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN")
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY")
@@ -74,14 +82,25 @@ class MultiModalRoute:
 
 class MultiModalRouter:
     """
-    Intelligent multi-modal transport router
+    Intelligent multi-modal transport router with advanced complexity analysis
+    
     Determines optimal transport modes based on:
-    - Distance
-    - Geography (domestic vs international)
+    - Distance & Geography (domestic vs international)
     - Available infrastructure (ports, airports)
-    - Cost efficiency
-    - Time constraints
+    - Cost efficiency WITH real-world penalties
+    - Time constraints WITH terrain/border/congestion factors
+    
+    New Features:
+    - Topography-aware cost/time adjustments
+    - Border crossing delay modeling
+    - Port efficiency & dwell time calculation
+    - Urban congestion penalties
+    - Seasonal impact factors
     """
+    
+    def __init__(self):
+        """Initialize router with complexity analyzer"""
+        self.complexity_analyzer = RouteComplexityAnalyzer()
     
     # Major seaports worldwide
     MAJOR_SEAPORTS = {
@@ -311,9 +330,18 @@ class MultiModalRouter:
         self,
         distance_km: float,
         mode: TransportMode,
-        cargo_weight_tons: float
-    ) -> float:
-        """Calculate cost for a segment"""
+        cargo_weight_tons: float,
+        origin_location: Optional[Location] = None,
+        dest_location: Optional[Location] = None,
+        port_name: Optional[str] = None
+    ) -> Tuple[float, str]:
+        """
+        Calculate cost for a segment WITH complexity penalties
+        
+        Returns:
+            (adjusted_cost, explanation)
+        """
+        # Base cost calculation (old linear method)
         base_cost = distance_km * self.COST_PER_KM_TON[mode] * cargo_weight_tons
         
         # Add fixed costs
@@ -323,16 +351,51 @@ class MultiModalRouter:
             TransportMode.SHIP: 2000,
             TransportMode.AIR: 5000,
         }
+        base_cost += fixed_costs[mode]
         
-        return base_cost + fixed_costs[mode]
+        # Apply complexity penalties if location data available
+        if origin_location and dest_location:
+            penalties = self.complexity_analyzer.calculate_segment_penalties(
+                origin_lat=origin_location.latitude,
+                origin_lon=origin_location.longitude,
+                origin_country=origin_location.country,
+                dest_lat=dest_location.latitude,
+                dest_lon=dest_location.longitude,
+                dest_country=dest_location.country,
+                transport_mode=mode.value,
+                distance_km=distance_km,
+                port_name=port_name,
+                cargo_weight_tons=cargo_weight_tons
+            )
+            
+            adjusted_cost, _, explanation = self.complexity_analyzer.apply_penalties_to_segment(
+                base_distance_km=distance_km,
+                base_cost_usd=base_cost,
+                base_duration_hours=0,  # We'll calculate duration separately
+                penalties=penalties
+            )
+            
+            return adjusted_cost, explanation
+        
+        return base_cost, "Base cost calculation (no complexity analysis)"
     
     def calculate_segment_duration(
         self,
         distance_km: float,
         mode: TransportMode,
+        origin_location: Optional[Location] = None,
+        dest_location: Optional[Location] = None,
+        port_name: Optional[str] = None,
+        cargo_weight_tons: float = 100,
         include_loading: bool = True
-    ) -> float:
-        """Calculate duration for a segment"""
+    ) -> Tuple[float, str]:
+        """
+        Calculate duration for a segment WITH complexity penalties
+        
+        Returns:
+            (adjusted_duration_hours, explanation)
+        """
+        # Base travel time
         travel_time = distance_km / self.AVERAGE_SPEEDS[mode]
         
         # Add loading/unloading time
@@ -345,7 +408,31 @@ class MultiModalRouter:
             }
             travel_time += loading_times[mode]
         
-        return travel_time
+        # Apply complexity penalties if location data available
+        if origin_location and dest_location:
+            penalties = self.complexity_analyzer.calculate_segment_penalties(
+                origin_lat=origin_location.latitude,
+                origin_lon=origin_location.longitude,
+                origin_country=origin_location.country,
+                dest_lat=dest_location.latitude,
+                dest_lon=dest_location.longitude,
+                dest_country=dest_location.country,
+                transport_mode=mode.value,
+                distance_km=distance_km,
+                port_name=port_name,
+                cargo_weight_tons=cargo_weight_tons
+            )
+            
+            _, adjusted_duration, explanation = self.complexity_analyzer.apply_penalties_to_segment(
+                base_distance_km=distance_km,
+                base_cost_usd=0,  # We calculated cost separately
+                base_duration_hours=travel_time,
+                penalties=penalties
+            )
+            
+            return adjusted_duration, explanation
+        
+        return travel_time, "Base duration calculation (no complexity analysis)"
     
     async def plan_route(
         self,
@@ -394,16 +481,26 @@ class MultiModalRouter:
                 try:
                     distance_km, duration_hours, coordinates = await self.get_road_route(origin, destination)
                     
+                    # Apply complexity analysis
+                    adj_cost, cost_explanation = self.calculate_segment_cost(
+                        distance_km, TransportMode.TRUCK, cargo_weight_tons,
+                        origin, destination
+                    )
+                    adj_duration, duration_explanation = self.calculate_segment_duration(
+                        distance_km, TransportMode.TRUCK,
+                        origin, destination, cargo_weight_tons=cargo_weight_tons
+                    )
+                    
                     segment = RouteSegment(
                         segment_type=SegmentType.DIRECT,
                         transport_mode=TransportMode.TRUCK,
                         origin=origin,
                         destination=destination,
                         distance_km=distance_km,
-                        duration_hours=duration_hours,
-                        cost_usd=self.calculate_segment_cost(distance_km, TransportMode.TRUCK, cargo_weight_tons),
+                        duration_hours=adj_duration,
+                        cost_usd=adj_cost,
                         coordinates=coordinates,
-                        description=f"Direct truck transport from {origin.name} to {destination.name}"
+                        description=f"Direct truck transport from {origin.name} to {destination.name}. {cost_explanation}"
                     )
                     segments.append(segment)
                     
@@ -429,23 +526,34 @@ class MultiModalRouter:
                 # Segment 1: Truck to origin airport
                 try:
                     dist1, dur1, coords1 = await self.get_road_route(origin, origin_airport)
+                    adj_cost1, cost_exp1 = self.calculate_segment_cost(
+                        dist1, TransportMode.TRUCK, cargo_weight_tons, origin, origin_airport
+                    )
+                    adj_dur1, dur_exp1 = self.calculate_segment_duration(
+                        dist1, TransportMode.TRUCK, origin, origin_airport, cargo_weight_tons=cargo_weight_tons
+                    )
                     segments.append(RouteSegment(
                         segment_type=SegmentType.ORIGIN_TO_PORT,
                         transport_mode=TransportMode.TRUCK,
                         origin=origin,
                         destination=origin_airport,
                         distance_km=dist1,
-                        duration_hours=dur1,
-                        cost_usd=self.calculate_segment_cost(dist1, TransportMode.TRUCK, cargo_weight_tons),
+                        duration_hours=adj_dur1,
+                        cost_usd=adj_cost1,
                         coordinates=coords1,
-                        description=f"Ground transport to {origin_airport.name}"
+                        description=f"Ground transport to {origin_airport.name}. {cost_exp1}"
                     ))
                 except Exception as e:
                     raise Exception(f"Cannot route to origin airport: {str(e)}")
                 
                 # Segment 2: Air freight
                 air_distance = self.calculate_direct_distance(origin_airport, dest_airport)
-                air_duration = self.calculate_segment_duration(air_distance, TransportMode.AIR)
+                adj_air_cost, air_cost_exp = self.calculate_segment_cost(
+                    air_distance, TransportMode.AIR, cargo_weight_tons, origin_airport, dest_airport
+                )
+                adj_air_dur, air_dur_exp = self.calculate_segment_duration(
+                    air_distance, TransportMode.AIR, origin_airport, dest_airport, cargo_weight_tons=cargo_weight_tons
+                )
                 
                 segments.append(RouteSegment(
                     segment_type=SegmentType.AIR_SEGMENT,
@@ -453,28 +561,34 @@ class MultiModalRouter:
                     origin=origin_airport,
                     destination=dest_airport,
                     distance_km=air_distance,
-                    duration_hours=air_duration,
-                    cost_usd=self.calculate_segment_cost(air_distance, TransportMode.AIR, cargo_weight_tons),
+                    duration_hours=adj_air_dur,
+                    cost_usd=adj_air_cost,
                     coordinates=[
                         {"latitude": origin_airport.latitude, "longitude": origin_airport.longitude},
                         {"latitude": dest_airport.latitude, "longitude": dest_airport.longitude}
                     ],
-                    description=f"Air freight from {origin_airport.name} to {dest_airport.name}"
+                    description=f"Air freight from {origin_airport.name} to {dest_airport.name}. {air_cost_exp}"
                 ))
                 
                 # Segment 3: Truck from dest airport
                 try:
                     dist3, dur3, coords3 = await self.get_road_route(dest_airport, destination)
+                    adj_cost3, cost_exp3 = self.calculate_segment_cost(
+                        dist3, TransportMode.TRUCK, cargo_weight_tons, dest_airport, destination
+                    )
+                    adj_dur3, dur_exp3 = self.calculate_segment_duration(
+                        dist3, TransportMode.TRUCK, dest_airport, destination, cargo_weight_tons=cargo_weight_tons
+                    )
                     segments.append(RouteSegment(
                         segment_type=SegmentType.PORT_TO_DESTINATION,
                         transport_mode=TransportMode.TRUCK,
                         origin=dest_airport,
                         destination=destination,
                         distance_km=dist3,
-                        duration_hours=dur3,
-                        cost_usd=self.calculate_segment_cost(dist3, TransportMode.TRUCK, cargo_weight_tons),
+                        duration_hours=adj_dur3,
+                        cost_usd=adj_cost3,
                         coordinates=coords3,
-                        description=f"Ground transport to {destination.name}"
+                        description=f"Ground transport to {destination.name}. {cost_exp3}"
                     ))
                 except Exception as e:
                     raise Exception(f"Cannot route from destination airport: {str(e)}")
@@ -487,23 +601,36 @@ class MultiModalRouter:
                 # Segment 1: Truck to origin port
                 try:
                     dist1, dur1, coords1 = await self.get_road_route(origin, origin_port)
+                    adj_cost1, cost_exp1 = self.calculate_segment_cost(
+                        dist1, TransportMode.TRUCK, cargo_weight_tons, origin, origin_port
+                    )
+                    adj_dur1, dur_exp1 = self.calculate_segment_duration(
+                        dist1, TransportMode.TRUCK, origin, origin_port, cargo_weight_tons=cargo_weight_tons
+                    )
                     segments.append(RouteSegment(
                         segment_type=SegmentType.ORIGIN_TO_PORT,
                         transport_mode=TransportMode.TRUCK,
                         origin=origin,
                         destination=origin_port,
                         distance_km=dist1,
-                        duration_hours=dur1,
-                        cost_usd=self.calculate_segment_cost(dist1, TransportMode.TRUCK, cargo_weight_tons),
+                        duration_hours=adj_dur1,
+                        cost_usd=adj_cost1,
                         coordinates=coords1,
-                        description=f"Ground transport to {origin_port.name}"
+                        description=f"Ground transport to {origin_port.name}. {cost_exp1}"
                     ))
                 except Exception as e:
                     raise Exception(f"Cannot route to origin port {origin_port.name}: {str(e)}")
                 
-                # Segment 2: Sea freight
+                # Segment 2: Sea freight (with port efficiency analysis)
                 sea_distance = self.calculate_direct_distance(origin_port, dest_port)
-                sea_duration = self.calculate_segment_duration(sea_distance, TransportMode.SHIP)
+                adj_sea_cost, sea_cost_exp = self.calculate_segment_cost(
+                    sea_distance, TransportMode.SHIP, cargo_weight_tons,
+                    origin_port, dest_port, port_name=dest_port.name
+                )
+                adj_sea_dur, sea_dur_exp = self.calculate_segment_duration(
+                    sea_distance, TransportMode.SHIP,
+                    origin_port, dest_port, port_name=dest_port.name, cargo_weight_tons=cargo_weight_tons
+                )
                 
                 segments.append(RouteSegment(
                     segment_type=SegmentType.PORT_TO_PORT,
@@ -511,28 +638,34 @@ class MultiModalRouter:
                     origin=origin_port,
                     destination=dest_port,
                     distance_km=sea_distance,
-                    duration_hours=sea_duration,
-                    cost_usd=self.calculate_segment_cost(sea_distance, TransportMode.SHIP, cargo_weight_tons),
+                    duration_hours=adj_sea_dur,
+                    cost_usd=adj_sea_cost,
                     coordinates=[
                         {"latitude": origin_port.latitude, "longitude": origin_port.longitude},
                         {"latitude": dest_port.latitude, "longitude": dest_port.longitude}
                     ],
-                    description=f"Sea freight from {origin_port.name} to {dest_port.name}"
+                    description=f"Sea freight from {origin_port.name} to {dest_port.name}. {sea_dur_exp}"
                 ))
                 
                 # Segment 3: Truck from dest port
                 try:
                     dist3, dur3, coords3 = await self.get_road_route(dest_port, destination)
+                    adj_cost3, cost_exp3 = self.calculate_segment_cost(
+                        dist3, TransportMode.TRUCK, cargo_weight_tons, dest_port, destination
+                    )
+                    adj_dur3, dur_exp3 = self.calculate_segment_duration(
+                        dist3, TransportMode.TRUCK, dest_port, destination, cargo_weight_tons=cargo_weight_tons
+                    )
                     segments.append(RouteSegment(
                         segment_type=SegmentType.PORT_TO_DESTINATION,
                         transport_mode=TransportMode.TRUCK,
                         origin=dest_port,
                         destination=destination,
                         distance_km=dist3,
-                        duration_hours=dur3,
-                        cost_usd=self.calculate_segment_cost(dist3, TransportMode.TRUCK, cargo_weight_tons),
+                        duration_hours=adj_dur3,
+                        cost_usd=adj_cost3,
                         coordinates=coords3,
-                        description=f"Ground transport to {destination.name}"
+                        description=f"Ground transport to {destination.name}. {cost_exp3}"
                     ))
                 except Exception as e:
                     raise Exception(f"Cannot route from destination port {dest_port.name}: {str(e)}")
