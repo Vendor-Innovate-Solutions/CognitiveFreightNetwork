@@ -50,11 +50,11 @@ export default function RouteMapFallback({
           </div>
           <div className="flex gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-[#F97316] border-2 border-dashed border-[#F97316]"></div>
+              <div className="w-8 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
               <span className="text-muted-foreground">Actual Route</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-[#10B981]"></div>
+              <div className="w-8 h-1 bg-emerald-500"></div>
               <span className="text-muted-foreground">Optimized Route</span>
             </div>
           </div>
