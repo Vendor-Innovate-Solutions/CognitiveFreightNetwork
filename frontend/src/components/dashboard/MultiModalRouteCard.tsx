@@ -6,8 +6,7 @@
 import { Card } from "@/components/ui/card";
 import type { 
   MultiModalRoute, 
-  RouteSegment, 
-  Location 
+  RouteSegment
 } from "@/lib/multi-modal-api";
 import {
   getTransportModeDisplay,
@@ -33,10 +32,10 @@ export default function MultiModalRouteCard({
   
   if (loading) {
     return (
-      <Card className="p-4">
+      <Card className="p-4 bg-[#1E293B] border-[#334155]">
         <div className="flex items-center justify-center h-40">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Calculating optimal multi-modal route...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3B82F6]"></div>
+          <span className="ml-3 text-[#94A3B8]">Calculating optimal multi-modal route...</span>
         </div>
       </Card>
     );
@@ -61,8 +60,8 @@ export default function MultiModalRouteCard({
               <div className="bg-white/50 rounded p-2 mb-2">
                 <p className="text-xs font-medium text-red-700 mb-1">💡 Try:</p>
                 <ul className="text-xs text-red-600 space-y-1 list-disc list-inside">
-                  <li>Check spelling (e.g., "Mumbai" not "Bombay")</li>
-                  <li>Use full city names (e.g., "New York City, USA")</li>
+                  <li>Check spelling (e.g., &quot;Mumbai&quot; not &quot;Bombay&quot;)</li>
+                  <li>Use full city names (e.g., &quot;New York City, USA&quot;)</li>
                   <li>Try alternate names or nearby major cities</li>
                 </ul>
               </div>
@@ -104,11 +103,11 @@ export default function MultiModalRouteCard({
 
   if (!route) {
     return (
-      <Card className="p-4 border-gray-300 bg-gray-50">
+      <Card className="p-4 border-[#334155] bg-[#1E293B]">
         <div className="flex items-center justify-center h-40">
           <div className="text-center">
             <span className="text-4xl mb-2 block">🗺️</span>
-            <p className="text-gray-600">Select a shipment to view multi-modal route details</p>
+            <p className="text-[#94A3B8]">Select a shipment to view multi-modal route details</p>
           </div>
         </div>
       </Card>
@@ -116,11 +115,11 @@ export default function MultiModalRouteCard({
   }
 
   return (
-    <Card className="p-3">
+    <Card className="p-3 bg-[#1E293B] border-[#334155]">
       {/* Header */}
-      <div className="border-b pb-2 mb-3">
+      <div className="border-b border-[#334155] pb-2 mb-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">
+          <h3 className="font-semibold text-sm text-[#F1F5F9]">
             {route.is_international ? "🌍 International" : "🏠 Domestic"} Multi-Modal Route
           </h3>
           <div className="flex gap-1">
@@ -142,21 +141,21 @@ export default function MultiModalRouteCard({
 
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <div className="bg-gray-50 p-2 rounded">
-          <div className="text-xs text-gray-500">Duration</div>
-          <div className="text-base font-semibold text-gray-900">
+        <div className="bg-[#0F172A] p-2 rounded border border-[#334155]">
+          <div className="text-xs text-[#94A3B8]">Duration</div>
+          <div className="text-base font-semibold text-[#F1F5F9]">
             {formatDuration(route.total_duration_hours)}
           </div>
         </div>
-        <div className="bg-gray-50 p-2 rounded">
-          <div className="text-xs text-gray-500">Distance</div>
-          <div className="text-base font-semibold text-gray-900">
+        <div className="bg-[#0F172A] p-2 rounded border border-[#334155]">
+          <div className="text-xs text-[#94A3B8]">Distance</div>
+          <div className="text-base font-semibold text-[#F1F5F9]">
             {Math.round(route.total_distance_km)}km
           </div>
         </div>
-        <div className="bg-gray-50 p-2 rounded">
-          <div className="text-xs text-gray-500">Cost</div>
-          <div className="text-base font-semibold text-gray-900">
+        <div className="bg-[#0F172A] p-2 rounded border border-[#334155]">
+          <div className="text-xs text-[#94A3B8]">Cost</div>
+          <div className="text-base font-semibold text-[#F1F5F9]">
             {formatCost(route.total_cost_usd, "INR")}
           </div>
         </div>
@@ -164,7 +163,7 @@ export default function MultiModalRouteCard({
 
       {/* Route Segments */}
       <div className="space-y-2">
-        <div className="text-xs font-medium text-gray-600 mb-1">Route Breakdown:</div>
+        <div className="text-xs font-medium text-[#94A3B8] mb-1">Route Breakdown:</div>
         {route.segments.map((segment, idx) => (
           <div key={idx}>
             <RouteSegmentItem 
@@ -177,19 +176,19 @@ export default function MultiModalRouteCard({
 
       {/* Transfer Points */}
       {route.transfer_points.length > 0 && (
-        <div className="mt-3 pt-3 border-t">
-          <div className="text-xs font-medium text-gray-600 mb-2">
+        <div className="mt-3 pt-3 border-t border-[#334155]">
+          <div className="text-xs font-medium text-[#94A3B8] mb-2">
             Transfer Points:
           </div>
           <div className="flex flex-wrap gap-2">
             {route.transfer_points.map((point, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-1 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-xs"
+                className="flex items-center gap-1 px-2 py-1 bg-[#0F172A] border border-[#3B82F6] rounded text-xs"
               >
                 <span>{getLocationTypeIcon(point.type)}</span>
-                <span className="font-medium">{point.name}</span>
-                <span className="text-gray-500">({point.country})</span>
+                <span className="font-medium text-[#F1F5F9]">{point.name}</span>
+                <span className="text-[#94A3B8]">({point.country})</span>
               </div>
             ))}
           </div>
@@ -221,13 +220,13 @@ function RouteSegmentItem({
 
       {/* Segment Details */}
       <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-gray-800 mb-0.5">
+        <div className="text-xs font-medium text-[#F1F5F9] mb-0.5">
           {getTransportModeDisplay(segment.transport_mode)}
         </div>
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-[#94A3B8]">
           {getLocationTypeIcon(segment.origin.type)} {segment.origin.name} → {getLocationTypeIcon(segment.destination.type)} {segment.destination.name}
         </div>
-        <div className="flex gap-3 mt-1 text-xs text-gray-500">
+        <div className="flex gap-3 mt-1 text-xs text-[#94A3B8]">
           <span>📏 {Math.round(segment.distance_km)}km</span>
           <span>⏱️ {formatDuration(segment.duration_hours)}</span>
           <span>💰 {formatCost(segment.cost_usd, "INR")}</span>
@@ -236,7 +235,7 @@ function RouteSegmentItem({
 
       {/* Connector Line */}
       {!isLast && (
-        <div className="absolute left-[16px] top-[32px] w-0.5 h-[calc(100%+8px)] bg-gray-200" />
+        <div className="absolute left-[16px] top-[32px] w-0.5 h-[calc(100%+8px)] bg-[#334155]" />
       )}
     </div>
   );
