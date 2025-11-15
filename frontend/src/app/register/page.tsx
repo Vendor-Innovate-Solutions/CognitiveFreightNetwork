@@ -63,19 +63,19 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-blue-200 to-blue-300 p-4">
       <Card className="w-full max-w-2xl p-8 shadow-2xl bg-white">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+          <h1 className="text-3xl font-bold text-blue-900 mb-2">
             🚚 Create Your Account
           </h1>
-          <p className="text-slate-600 font-medium">Join Cognitive Freight Network today</p>
+          <p className="text-blue-700 font-medium">Join Cognitive Freight Network today</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="name" className="block text-sm font-semibold text-slate-800 mb-2">
+              <label htmlFor="name" className="block text-sm font-semibold text-blue-900 mb-2">
                 Company Name *
               </label>
               <input
@@ -85,13 +85,13 @@ export default function RegisterPage() {
                 required
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
                 placeholder="ABC Logistics Pvt Ltd"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-slate-800 mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-blue-900 mb-2">
                 Email Address *
               </label>
               <input
@@ -101,13 +101,13 @@ export default function RegisterPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
                 placeholder="contact@company.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-800 mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-blue-900 mb-2">
                 Password * (6-50 characters)
               </label>
               <input
@@ -119,13 +119,13 @@ export default function RegisterPage() {
                 maxLength={50}
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
                 placeholder="6-50 characters"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-slate-800 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-blue-900 mb-2">
                 Confirm Password *
               </label>
               <input
@@ -135,13 +135,13 @@ export default function RegisterPage() {
                 required
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
                 placeholder="Re-enter password"
               />
             </div>
 
             <div>
-              <label htmlFor="company_type" className="block text-sm font-semibold text-slate-800 mb-2">
+              <label htmlFor="company_type" className="block text-sm font-semibold text-blue-900 mb-2">
                 Company Type *
               </label>
               <select
@@ -150,7 +150,7 @@ export default function RegisterPage() {
                 required
                 value={formData.company_type}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 bg-white font-medium"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 bg-white font-medium"
               >
                 <option value="Shipper">Shipper</option>
                 <option value="Transporter">Transporter</option>
@@ -159,7 +159,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-semibold text-slate-800 mb-2">
+              <label htmlFor="phone" className="block text-sm font-semibold text-blue-900 mb-2">
                 Phone Number
               </label>
               <input
@@ -168,13 +168,13 @@ export default function RegisterPage() {
                 type="tel"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
                 placeholder="+91 98765 43210"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="gstin" className="block text-sm font-semibold text-slate-800 mb-2">
+              <label htmlFor="gstin" className="block text-sm font-semibold text-blue-900 mb-2">
                 GSTIN (15 digits)
               </label>
               <input
@@ -184,7 +184,7 @@ export default function RegisterPage() {
                 value={formData.gstin}
                 onChange={handleChange}
                 maxLength={15}
-                className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+                className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
                 placeholder="22AAAAA0000A1Z5"
               />
             </div>
@@ -206,7 +206,7 @@ export default function RegisterPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-slate-700">
+          <p className="text-blue-800">
             Already have an account?{' '}
             <Link href="/login" className="text-blue-600 hover:text-blue-800 font-bold underline">
               Sign in here

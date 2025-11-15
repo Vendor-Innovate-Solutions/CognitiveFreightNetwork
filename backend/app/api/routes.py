@@ -330,6 +330,98 @@ async def get_plants():
     return plants
 
 
+@router.post("/api/route/multi-modal", tags=["Multi-Modal Routing"])
+async def plan_multi_modal_route(
+    origin: str,
+    destination: str,
+    cargo_weight_tons: float,
+    is_urgent: bool = False,
+    avoid_air: bool = False
+):
+    """
+    Plan optimal multi-modal route with intelligent transport mode selection
+    
+    Features:
+    - Automatic transport mode detection (Truck, Rail, Ship, Air)
+    - Port and airport identification for international routes
+    - Real-time route calculation with NO FALLBACKS
+    - Detailed cost and time estimates per segment
+    - Transfer point identification
+    
+    Raises errors if route cannot be calculated - NO DEFAULT VALUES
+    """
+    try:
+        from app.services.multi_modal_router import MultiModalRouter
+        
+        router = MultiModalRouter()
+        route = await router.plan_route(
+            origin_name=origin,
+            destination_name=destination,
+            cargo_weight_tons=cargo_weight_tons,
+            is_urgent=is_urgent,
+            avoid_air=avoid_air
+        )
+        
+        # Convert to JSON-serializable format
+        return {
+            "success": True,
+            "route": {
+                "segments": [
+                    {
+                        "segment_type": seg.segment_type.value,
+                        "transport_mode": seg.transport_mode.value,
+                        "origin": {
+                            "name": seg.origin.name,
+                            "latitude": seg.origin.latitude,
+                            "longitude": seg.origin.longitude,
+                            "country": seg.origin.country,
+                            "type": seg.origin.type
+                        },
+                        "destination": {
+                            "name": seg.destination.name,
+                            "latitude": seg.destination.latitude,
+                            "longitude": seg.destination.longitude,
+                            "country": seg.destination.country,
+                            "type": seg.destination.type
+                        },
+                        "distance_km": seg.distance_km,
+                        "duration_hours": seg.duration_hours,
+                        "cost_usd": seg.cost_usd,
+                        "coordinates": seg.coordinates,
+                        "description": seg.description
+                    }
+                    for seg in route.segments
+                ],
+                "total_distance_km": route.total_distance_km,
+                "total_duration_hours": route.total_duration_hours,
+                "total_cost_usd": route.total_cost_usd,
+                "transport_modes_used": [mode.value for mode in route.transport_modes_used],
+                "transfer_points": [
+                    {
+                        "name": point.name,
+                        "latitude": point.latitude,
+                        "longitude": point.longitude,
+                        "country": point.country,
+                        "type": point.type
+                    }
+                    for point in route.transfer_points
+                ],
+                "route_description": route.route_description,
+                "is_international": route.is_international
+            }
+        }
+    
+    except ValueError as ve:
+        # User input errors (invalid location, etc.)
+        raise HTTPException(status_code=400, detail=str(ve))
+    except NotImplementedError as nie:
+        # Features not yet implemented
+        raise HTTPException(status_code=501, detail=str(nie))
+    except Exception as e:
+        # Other errors
+        raise HTTPException(status_code=500, detail=f"Route planning failed: {str(e)}")
+
+
 @router.get("/api/stats/summary", tags=["Statistics"])
 async def get_summary_statistics():
     """Get summary statistics for the dashboard"""

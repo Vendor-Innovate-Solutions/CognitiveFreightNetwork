@@ -7,7 +7,10 @@ import { Card } from "@/components/ui/card";
 import { apiClient } from "@/lib/cfn-api";
 import RouteSimulatorMap from "@/components/dashboard/RouteSimulatorMap";
 import WeatherCard from "@/components/dashboard/WeatherCard";
+import { geocodeCity, getDetailedRoute, geocodeCities } from "@/lib/mapbox-geocoding";
 import { SimulationData, Route, RouteEvent } from "@/types/route";
+import { planMultiModalRoute, type MultiModalRoute, type RouteError } from "@/lib/multi-modal-api";
+import MultiModalRouteCard from "@/components/dashboard/MultiModalRouteCard";
 
 // Route distance response from backend
 interface RouteDistanceData {
@@ -231,9 +234,14 @@ const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: numbe
 };
 
 // Function to convert shipment to simulation data for map
-const createSimulationData = (shipment: Shipment, routeDistances?: RouteDistanceData | null): SimulationData => {
-  // Get coordinates for major Indian cities (simplified)
-  const cityCoords: Record<string, { lat: number; lng: number }> = {
+const createSimulationData = (
+  shipment: Shipment, 
+  routeDistances?: RouteDistanceData | null,
+  geocodedCities?: Map<string, {lat: number, lng: number}>,
+  detailedRoutes?: {traditional: any, optimized: any} | null
+): SimulationData => {
+  // Use geocoded coordinates if available, otherwise fallback
+  const fallbackCoords: Record<string, { lat: number; lng: number }> = {
     "Mumbai": { lat: 19.0760, lng: 72.8777 },
     "Delhi": { lat: 28.7041, lng: 77.1025 },
     "Bangalore": { lat: 12.9716, lng: 77.5946 },
@@ -246,8 +254,8 @@ const createSimulationData = (shipment: Shipment, routeDistances?: RouteDistance
     "Surat": { lat: 21.1702, lng: 72.8311 }
   };
 
-  const originCoords = cityCoords[shipment.origin_city] || { lat: 19.0760, lng: 72.8777 };
-  const destCoords = cityCoords[shipment.destination_city] || { lat: 28.7041, lng: 77.1025 };
+  const originCoords = geocodedCities?.get(shipment.origin_city) || fallbackCoords[shipment.origin_city] || { lat: 19.0760, lng: 72.8777 };
+  const destCoords = geocodedCities?.get(shipment.destination_city) || fallbackCoords[shipment.destination_city] || { lat: 28.7041, lng: 77.1025 };
 
   // Get the optimized route cities
   const routeCities = getRouteCities(shipment.origin_city, shipment.destination_city);
@@ -279,7 +287,7 @@ const createSimulationData = (shipment: Shipment, routeDistances?: RouteDistance
   const optimizedRouteText = routeCities.join(" → ");
   const traditionalRouteText = `${shipment.origin_city} → Direct Highway → ${shipment.destination_city}`;
 
-  // Create intermediate points for route visualization
+  // Use detailed routes from Mapbox if available, otherwise create simple routes
   const createRoutePoints = (start: {lat: number, lng: number}, end: {lat: number, lng: number}, isDirect = false) => {
     const points = [
       { latitude: start.lat, longitude: start.lng }
@@ -302,7 +310,7 @@ const createSimulationData = (shipment: Shipment, routeDistances?: RouteDistance
       id: "actual",
       name: "Traditional Route",
       type: "actual",
-      coordinates: createRoutePoints(originCoords, destCoords, false),
+      coordinates: detailedRoutes?.traditional?.coordinates || createRoutePoints(originCoords, destCoords, false),
       stats: {
         duration: `${traditionalTime}h`,
         distance: `${traditionalDistance}km`,
@@ -316,7 +324,7 @@ const createSimulationData = (shipment: Shipment, routeDistances?: RouteDistance
       id: "optimized",
       name: "AI-Optimized Route",
       type: "optimized",
-      coordinates: createRoutePoints(originCoords, destCoords, true),
+      coordinates: detailedRoutes?.optimized?.coordinates || createRoutePoints(originCoords, destCoords, true),
       stats: {
         duration: `${optimizedTime}h`,
         distance: `${optimizedDistance}km`,
@@ -380,7 +388,15 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [routeDistances, setRouteDistances] = useState<RouteDistanceData | null>(null);
   const [distancesLoading, setDistancesLoading] = useState(false);
+  const [geocodedCities, setGeocodedCities] = useState<Map<string, {lat: number, lng: number}>>(new Map());
+  const [detailedRoutes, setDetailedRoutes] = useState<{traditional: any, optimized: any} | null>(null);
+  const [routesLoading, setRoutesLoading] = useState(false);
   const [error, setError] = useState('');
+  const [shipmentsToShow, setShipmentsToShow] = useState(5);
+  // Multi-modal routing state
+  const [multiModalRoute, setMultiModalRoute] = useState<MultiModalRoute | null>(null);
+  const [multiModalLoading, setMultiModalLoading] = useState(false);
+  const [multiModalError, setMultiModalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!company) {
@@ -395,10 +411,88 @@ export default function DashboardPage() {
   useEffect(() => {
     if (selectedShipment) {
       fetchRouteDistancesForShipment(selectedShipment);
+      fetchDetailedRoutesForShipment(selectedShipment);
+      fetchMultiModalRoute(selectedShipment);
     } else {
       setRouteDistances(null);
+      setDetailedRoutes(null);
+      setMultiModalRoute(null);
+      setMultiModalError(null);
     }
   }, [selectedShipment]);
+
+  const fetchDetailedRoutesForShipment = async (shipment: Shipment) => {
+    setRoutesLoading(true);
+    try {
+      // Geocode origin and destination
+      const [originGeo, destGeo] = await Promise.all([
+        geocodeCity(shipment.origin_city),
+        geocodeCity(shipment.destination_city)
+      ]);
+
+      if (originGeo && destGeo) {
+        // Update geocoded cities map
+        const newGeocodedCities = new Map(geocodedCities);
+        newGeocodedCities.set(shipment.origin_city, { lat: originGeo.coordinates.latitude, lng: originGeo.coordinates.longitude });
+        newGeocodedCities.set(shipment.destination_city, { lat: destGeo.coordinates.latitude, lng: destGeo.coordinates.longitude });
+        setGeocodedCities(newGeocodedCities);
+
+        // Fetch detailed routes from Mapbox Directions API
+        const [traditionalRoute, optimizedRoute] = await Promise.all([
+          getDetailedRoute(
+            originGeo.coordinates,
+            destGeo.coordinates,
+            undefined,
+            "driving"
+          ),
+          getDetailedRoute(
+            originGeo.coordinates,
+            destGeo.coordinates,
+            undefined,
+            "driving-traffic"
+          )
+        ]);
+
+        if (traditionalRoute && optimizedRoute) {
+          setDetailedRoutes({
+            traditional: traditionalRoute,
+            optimized: optimizedRoute
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching detailed routes:", error);
+    } finally {
+      setRoutesLoading(false);
+    }
+  };
+
+  const fetchMultiModalRoute = async (shipment: Shipment) => {
+    setMultiModalLoading(true);
+    setMultiModalError(null);
+    
+    try {
+      const result = await planMultiModalRoute(
+        shipment.origin_city,
+        shipment.destination_city,
+        shipment.cargo_weight_tons || 10,
+        false, // is_urgent
+        false  // avoid_air
+      );
+
+      if (result.success) {
+        setMultiModalRoute(result.route);
+      } else {
+        const error = result as RouteError;
+        setMultiModalError(error.error);
+      }
+    } catch (error) {
+      console.error("Error fetching multi-modal route:", error);
+      setMultiModalError("Failed to calculate route. Please try again.");
+    } finally {
+      setMultiModalLoading(false);
+    }
+  };
 
   const fetchRouteDistancesForShipment = async (shipment: Shipment) => {
     setDistancesLoading(true);
@@ -569,11 +663,12 @@ export default function DashboardPage() {
         {/* Shipments Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Shipments List */}
-          <Card className="p-6 border border-gray-200 bg-white shadow-sm">
+          <Card className="p-6 border border-gray-200 bg-white shadow-sm flex flex-col" style={{ height: 'fit-content', maxHeight: '800px' }}>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Shipments</h2>
             {shipments.length > 0 ? (
-              <div className="space-y-4">
-                {shipments.map((shipment) => (
+              <>
+                <div className="space-y-4 overflow-y-auto flex-1" style={{ maxHeight: '600px' }}>
+                  {shipments.slice(0, shipmentsToShow).map((shipment) => (
                   <div
                     key={shipment._id}
                     className={`bg-white border-2 rounded-lg p-5 cursor-pointer transition-all duration-200 hover:shadow-md ${
@@ -611,7 +706,24 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+                {shipments.length > shipmentsToShow && (
+                  <button
+                    onClick={() => setShipmentsToShow(prev => prev + 5)}
+                    className="mt-4 w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    View More ({shipments.length - shipmentsToShow} remaining)
+                  </button>
+                )}
+                {shipmentsToShow > 5 && (
+                  <button
+                    onClick={() => setShipmentsToShow(5)}
+                    className="mt-2 w-full py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                  >
+                    Show Less
+                  </button>
+                )}
+              </>
             ) : (
               <div className="text-center py-16">
                 <p className="text-gray-600 text-lg font-medium mb-4">No shipments found.</p>
@@ -625,43 +737,53 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          {/* Shipment Details & Map */}
-          <Card className="p-6 border border-gray-200 bg-white shadow-sm">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Shipment Details & Route</h3>
+          {/* Shipment Details */}
+          <Card className="p-6 border border-blue-200 bg-white shadow-sm flex flex-col" style={{ height: 'fit-content', maxHeight: '800px' }}>
+            <h3 className="text-2xl font-bold text-blue-900 mb-6">Shipment Details</h3>
             {selectedShipment ? (
-              <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-bold text-gray-900 text-xl mb-2">{selectedShipment.shipment_ref}</h4>
-                  <p className="text-gray-700 font-medium text-lg">{selectedShipment.origin_city} → {selectedShipment.destination_city}</p>
+              <div className="space-y-4 overflow-y-auto flex-1" style={{ maxHeight: '700px' }}>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h4 className="font-bold text-blue-900 text-xl mb-2">{selectedShipment.shipment_ref}</h4>
+                  <p className="text-blue-800 font-medium text-lg">{selectedShipment.origin_city} → {selectedShipment.destination_city}</p>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <div className="flex flex-col">
-                      <span className="text-gray-700 font-semibold text-sm mb-1">Status</span>
-                      <span className="text-gray-900 font-bold text-base">{selectedShipment.status.replace('_', ' ')}</span>
+                      <span className="text-blue-700 font-semibold text-sm mb-1">Status</span>
+                      <span className="text-blue-900 font-bold text-base">{selectedShipment.status.replace('_', ' ')}</span>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div className="flex flex-col">
-                      <span className="text-gray-700 font-semibold text-sm mb-1">Weight</span>
-                      <span className="text-gray-900 font-bold text-base">{selectedShipment.cargo_weight_tons}t</span>
+                      <span className="text-blue-700 font-semibold text-sm mb-1">Weight</span>
+                      <span className="text-blue-900 font-bold text-base">{selectedShipment.cargo_weight_tons}t</span>
                     </div>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-gray-700 font-semibold text-sm mb-1">Distance</span>
-                    <span className="text-gray-900 font-bold text-base">
-                      {distancesLoading ? (
-                        <span className="animate-pulse">Loading...</span>
+                    <span className="text-blue-700 font-semibold text-sm mb-1">Distance</span>
+                    <span className="text-blue-900 font-bold text-base">
+                      {multiModalLoading ? (
+                        <span className="animate-pulse">Calculating...</span>
+                      ) : multiModalRoute ? (
+                        `${Math.round(multiModalRoute.total_distance_km)}km`
+                      ) : multiModalError ? (
+                        <span className="text-red-600 text-xs">Cannot calculate</span>
                       ) : (
-                        routeDistances ? `${routeDistances.direct_distance_km}km` : `${selectedShipment.distance_km || 500}km`
+                        <span className="text-gray-400 text-xs">No route data</span>
                       )}
                     </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-gray-700 font-semibold text-sm mb-1">Cost</span>
-                    <span className="text-gray-900 font-bold text-base">
-                      ₹{(selectedShipment.total_cost || selectedShipment.predicted_cost || 0).toLocaleString()}
+                    <span className="text-blue-700 font-semibold text-sm mb-1">Cost</span>
+                    <span className="text-blue-900 font-bold text-base">
+                      {multiModalRoute ? (
+                        `₹${Math.round(multiModalRoute.total_cost_usd * 83).toLocaleString()}`
+                      ) : (
+                        selectedShipment.total_cost || selectedShipment.predicted_cost ? 
+                        `₹${(selectedShipment.total_cost || selectedShipment.predicted_cost || 0).toLocaleString()}` :
+                        <span className="text-gray-400 text-xs">Not calculated</span>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -669,73 +791,65 @@ export default function DashboardPage() {
                 {/* Route Weather Information */}
                 <WeatherCard 
                   routeCities={getRouteCities(selectedShipment.origin_city, selectedShipment.destination_city)}
-                  className="mt-4"
+                  className=""
                 />
 
-                {/* AI-Optimized Route Information */}
-                <Card className="mt-4 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 shadow-sm">
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-2xl">🤖</span>
-                      <h4 className="font-bold text-green-900 text-lg">AI-Optimized Route</h4>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 border border-green-100">
-                        <p className="text-sm text-green-700 font-medium mb-2">Optimized Path:</p>
-                        <p className="text-green-900 font-semibold text-base">
-                          {getRouteCities(selectedShipment.origin_city, selectedShipment.destination_city).join(" → ")}
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 border border-green-100 text-center">
-                          <p className="text-xs text-green-700 font-medium">Estimated Time</p>
-                          <p className="text-green-900 font-bold text-lg">
-                            {distancesLoading ? (
-                              <span className="animate-pulse">...</span>
-                            ) : (
-                              routeDistances ? `${Math.round(routeDistances.optimized_duration_min / 60)}h` : '24h'
-                            )}
-                          </p>
-                        </div>
-                        <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 border border-green-100 text-center">
-                          <p className="text-xs text-green-700 font-medium">Distance</p>
-                          <p className="text-green-900 font-bold text-lg">
-                            {distancesLoading ? (
-                              <span className="animate-pulse">...</span>
-                            ) : (
-                              routeDistances ? `${routeDistances.optimized_distance_km}km` : '500km'
-                            )}
-                          </p>
-                        </div>
-                        <div className="bg-white/60 backdrop-blur-sm rounded-lg p-3 border border-green-100 text-center">
-                          <p className="text-xs text-green-700 font-medium">Cost Saved</p>
-                          <p className="text-green-900 font-bold text-lg">
-                            {distancesLoading ? (
-                              <span className="animate-pulse">...</span>
-                            ) : (
-                              routeDistances ? `₹${((routeDistances.direct_distance_km * 18 - routeDistances.optimized_distance_km * 15) * (selectedShipment.cargo_weight_tons || 1)).toLocaleString()}` : '₹40,000'
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="bg-green-100/60 backdrop-blur-sm rounded-lg p-3 border border-green-200">
-                        <p className="text-sm text-green-800">
-                          ✅ This AI-optimized route considers traffic patterns, fuel efficiency, toll costs, and weather conditions 
-                          to provide the most cost-effective and time-efficient path.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                {/* Multi-Modal Route Information */}
+                <MultiModalRouteCard
+                  route={multiModalRoute}
+                  loading={multiModalLoading}
+                  error={multiModalError}
+                  onRetry={() => selectedShipment && fetchMultiModalRoute(selectedShipment)}
+                />
 
-                {/* Interactive Route Map */}
-                <div className="mt-6">
-                  <RouteSimulatorMap 
-                    simulationData={createSimulationData(selectedShipment, routeDistances)}
-                    height="400px"
-                    className="rounded-lg"
-                  />
-                </div>
+                {/* Route Summary Card */}
+                {multiModalRoute && (
+                  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-300 shadow-sm">
+                    <div className="p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">📊</span>
+                        <h4 className="font-bold text-blue-900 text-base">Route Summary</h4>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200">
+                          <p className="text-xs text-blue-700 font-medium mb-1">Transport Modes:</p>
+                          <p className="text-blue-900 font-semibold text-sm">
+                            {multiModalRoute.transport_modes_used.map(mode => 
+                              mode === 'truck' ? '🚛 Truck' :
+                              mode === 'ship' ? '🚢 Ship' :
+                              mode === 'air' ? '✈️ Air' : '🚂 Rail'
+                            ).join(' → ')}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200 text-center">
+                            <p className="text-xs text-blue-700 font-medium">Duration</p>
+                            <p className="text-blue-900 font-bold text-base">
+                              {Math.round(multiModalRoute.total_duration_hours)}h
+                            </p>
+                          </div>
+                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200 text-center">
+                            <p className="text-xs text-blue-700 font-medium">Distance</p>
+                            <p className="text-blue-900 font-bold text-base">
+                              {Math.round(multiModalRoute.total_distance_km)}km
+                            </p>
+                          </div>
+                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200 text-center">
+                            <p className="text-xs text-blue-700 font-medium">Total Cost</p>
+                            <p className="text-blue-900 font-bold text-base">
+                              ₹{Math.round(multiModalRoute.total_cost_usd * 83).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="bg-blue-100/80 backdrop-blur-sm rounded-lg p-2 border border-blue-300">
+                          <p className="text-xs text-blue-900 font-medium">
+                            {multiModalRoute.is_international ? '🌍 International route with optimal port/airport selection' : '🏠 Domestic route optimized for efficiency'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
               </div>
             ) : (
               <div className="text-center py-16">
@@ -744,6 +858,17 @@ export default function DashboardPage() {
             )}
           </Card>
         </div>
+
+        {/* Interactive Route Map - Full Width Below */}
+        {selectedShipment && (
+          <div className="mt-8 mb-8">
+            <RouteSimulatorMap 
+              simulationData={createSimulationData(selectedShipment, routeDistances, geocodedCities, detailedRoutes)}
+              height="600px"
+              className="rounded-lg shadow-lg"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

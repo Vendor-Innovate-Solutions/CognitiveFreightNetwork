@@ -27,18 +27,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-blue-200 to-blue-300 p-4">
       <Card className="w-full max-w-md p-8 shadow-2xl bg-white">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+          <h1 className="text-3xl font-bold text-blue-900 mb-2">
             🚚 Cognitive Freight Network
           </h1>
-          <p className="text-slate-600">AI-Powered Logistics Planning</p>
+          <p className="text-blue-700">AI-Powered Logistics Planning</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-slate-800 mb-2">
+            <label htmlFor="email" className="block text-sm font-semibold text-blue-900 mb-2">
               Email Address
             </label>
             <input
@@ -47,13 +47,13 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+              className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
               placeholder="company@example.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-slate-800 mb-2">
+            <label htmlFor="password" className="block text-sm font-semibold text-blue-900 mb-2">
               Password
             </label>
             <input
@@ -62,7 +62,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-slate-900 placeholder-slate-400 bg-white"
+              className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-blue-600 text-blue-900 placeholder-blue-400 bg-white"
               placeholder="••••••••"
             />
           </div>
@@ -83,7 +83,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-slate-700">
+          <p className="text-blue-800">
             Don't have an account?{' '}
             <Link href="/register" className="text-blue-600 hover:text-blue-800 font-bold underline">
               Register here
@@ -91,9 +91,9 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="mt-8 pt-6 border-t-2 border-slate-200">
-          <h3 className="text-sm font-bold text-slate-800 mb-3">✨ Features:</h3>
-          <ul className="text-sm text-slate-700 space-y-2 font-medium">
+        <div className="mt-8 pt-6 border-t-2 border-blue-200">
+          <h3 className="text-sm font-bold text-blue-900 mb-3">✨ Features:</h3>
+          <ul className="text-sm text-blue-800 space-y-2 font-medium">
             <li>🎯 AI-powered route optimization</li>
             <li>💰 Cost prediction & savings analysis</li>
             <li>🌤️ Weather-aware planning</li>

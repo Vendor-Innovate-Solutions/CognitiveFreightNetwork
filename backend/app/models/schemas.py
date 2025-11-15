@@ -99,7 +99,7 @@ class ShipmentPlanRequest(BaseModel):
     
     # Cargo details
     cargo_type: str = Field(..., description="Electronics, Textiles, Perishable, etc.")
-    cargo_weight_tons: float = Field(..., gt=0, le=50)
+    cargo_weight_tons: float = Field(..., gt=0, le=1000, description="Weight in metric tons (up to 1000t for bulk shipments)")
     cargo_value: float = Field(..., gt=0, description="Value in INR")
     
     is_fragile: bool = False
