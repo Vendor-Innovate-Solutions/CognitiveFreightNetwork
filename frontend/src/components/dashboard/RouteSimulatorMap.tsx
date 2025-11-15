@@ -73,9 +73,18 @@ function RouteSimulatorMapInner({
     const bounds = new mapboxgl.LngLatBounds();
 
     simulationData.routes.forEach((route) => {
-      route.coordinates.forEach((coord) => {
-        bounds.extend([coord.longitude, coord.latitude]);
-      });
+      // Use segment coordinates if available, otherwise use route coordinates
+      if (route.segments && route.segments.length > 0) {
+        route.segments.forEach(segment => {
+          segment.coordinates.forEach((coord) => {
+            bounds.extend([coord.longitude, coord.latitude]);
+          });
+        });
+      } else {
+        route.coordinates.forEach((coord) => {
+          bounds.extend([coord.longitude, coord.latitude]);
+        });
+      }
     });
 
     simulationData.events.forEach((event) => {
