@@ -656,15 +656,34 @@ class NovelRouteOptimizer:
         count: int
     ) -> List[Dict]:
         """Generate synthetic alternative routes"""
+        from geopy.geocoders import Nominatim
+        from geopy.distance import geodesic
         
         # Get base route
+        base_distance = 500  # Default
+        base_time = 10
+        
         try:
             base_route = self.maps_service.get_route_info(origin, destination)['routes'][0]
             base_distance = base_route['distance_km']
             base_time = base_route['duration_hours']
         except:
-            base_distance = 500
-            base_time = 10
+            # Calculate distance using geocoding as fallback
+            try:
+                geolocator = Nominatim(user_agent="cfn_alt_route_optimizer", timeout=5)
+                origin_loc = geolocator.geocode(f"{origin}, India")
+                dest_loc = geolocator.geocode(f"{destination}, India")
+                
+                if origin_loc and dest_loc:
+                    straight_distance = geodesic(
+                        (origin_loc.latitude, origin_loc.longitude),
+                        (dest_loc.latitude, dest_loc.longitude)
+                    ).kilometers
+                    base_distance = straight_distance * 1.3
+                    base_time = base_distance / 50
+                    print(f"📍 Alternative routes using estimated distance: {base_distance:.0f}km")
+            except Exception as e:
+                print(f"⚠️ Alternative route geocoding failed: {e}")
         
         alternatives = []
         
@@ -685,11 +704,37 @@ class NovelRouteOptimizer:
         return alternatives
     
     def _generate_fallback_route(self, origin: str, destination: str) -> Dict:
-        """Generate fallback route when API fails"""
+        """Generate fallback route when API fails - estimates distance based on city pair"""
+        from geopy.geocoders import Nominatim
+        from geopy.distance import geodesic
         
         # Estimate based on typical Indian highway speeds
-        estimated_distance = 500  # km
-        estimated_time = estimated_distance / 50  # 50 km/h average
+        estimated_distance = 500  # Default fallback
+        
+        try:
+            # Try to geocode cities and calculate actual distance
+            geolocator = Nominatim(user_agent="cfn_route_optimizer", timeout=5)
+            
+            origin_loc = geolocator.geocode(f"{origin}, India")
+            dest_loc = geolocator.geocode(f"{destination}, India")
+            
+            if origin_loc and dest_loc:
+                # Calculate straight-line distance
+                straight_distance = geodesic(
+                    (origin_loc.latitude, origin_loc.longitude),
+                    (dest_loc.latitude, dest_loc.longitude)
+                ).kilometers
+                
+                # Road distance is typically 1.3x straight-line distance in India
+                estimated_distance = straight_distance * 1.3
+                print(f"📍 Estimated distance {origin} → {destination}: {estimated_distance:.0f}km")
+            else:
+                print(f"⚠️ Could not geocode cities, using default distance")
+                
+        except Exception as e:
+            print(f"⚠️ Geocoding failed: {e}, using default distance")
+        
+        estimated_time = estimated_distance / 50  # 50 km/h average for India
         
         return {
             'summary': f'{origin} to {destination} via estimated route',

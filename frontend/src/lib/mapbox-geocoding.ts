@@ -81,8 +81,121 @@ export async function geocodeCity(cityName: string): Promise<GeocodedLocation | 
 }
 
 /**
+ * Calculate great circle (straight-line) route between two points
+ * Used as fallback for long-distance ocean routes
+ */
+function calculateGreatCircleRoute(
+  origin: { latitude: number; longitude: number },
+  destination: { latitude: number; longitude: number },
+  waypoints?: Array<{ latitude: number; longitude: number }>
+): DetailedRoute {
+  const allPoints = [origin, ...(waypoints || []), destination];
+  
+  // Calculate total distance using Haversine formula
+  let totalDistance = 0;
+  for (let i = 0; i < allPoints.length - 1; i++) {
+    totalDistance += calculateHaversineDistance(allPoints[i], allPoints[i + 1]);
+  }
+  
+  // Generate intermediate points for a smooth curve (25 points per segment)
+  const coordinates: Array<{ latitude: number; longitude: number }> = [];
+  for (let i = 0; i < allPoints.length - 1; i++) {
+    const segmentPoints = interpolateGreatCircle(allPoints[i], allPoints[i + 1], 25);
+    coordinates.push(...segmentPoints);
+  }
+  
+  // Estimate duration (assuming average vessel speed of 25 km/h for ocean freight)
+  const duration_hours = totalDistance / 25;
+  
+  return {
+    coordinates,
+    distance_km: Math.round(totalDistance),
+    duration_hours: parseFloat(duration_hours.toFixed(1)),
+    geometry: {
+      type: "LineString",
+      coordinates: coordinates.map(c => [c.longitude, c.latitude])
+    }
+  };
+}
+
+/**
+ * Calculate distance between two points using Haversine formula
+ */
+function calculateHaversineDistance(
+  point1: { latitude: number; longitude: number },
+  point2: { latitude: number; longitude: number }
+): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = toRadians(point2.latitude - point1.latitude);
+  const dLon = toRadians(point2.longitude - point1.longitude);
+  
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(point1.latitude)) * Math.cos(toRadians(point2.latitude)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Interpolate points along a great circle path
+ */
+function interpolateGreatCircle(
+  start: { latitude: number; longitude: number },
+  end: { latitude: number; longitude: number },
+  numPoints: number
+): Array<{ latitude: number; longitude: number }> {
+  const points: Array<{ latitude: number; longitude: number }> = [];
+  
+  for (let i = 0; i <= numPoints; i++) {
+    const fraction = i / numPoints;
+    const lat1 = toRadians(start.latitude);
+    const lon1 = toRadians(start.longitude);
+    const lat2 = toRadians(end.latitude);
+    const lon2 = toRadians(end.longitude);
+    
+    const d = Math.acos(
+      Math.sin(lat1) * Math.sin(lat2) +
+      Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+    );
+    
+    if (d === 0) {
+      points.push({ latitude: start.latitude, longitude: start.longitude });
+      continue;
+    }
+    
+    const A = Math.sin((1 - fraction) * d) / Math.sin(d);
+    const B = Math.sin(fraction * d) / Math.sin(d);
+    
+    const x = A * Math.cos(lat1) * Math.cos(lon1) + B * Math.cos(lat2) * Math.cos(lon2);
+    const y = A * Math.cos(lat1) * Math.sin(lon1) + B * Math.cos(lat2) * Math.sin(lon2);
+    const z = A * Math.sin(lat1) + B * Math.sin(lat2);
+    
+    const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
+    const lon = Math.atan2(y, x);
+    
+    points.push({
+      latitude: toDegrees(lat),
+      longitude: toDegrees(lon)
+    });
+  }
+  
+  return points;
+}
+
+function toRadians(degrees: number): number {
+  return degrees * Math.PI / 180;
+}
+
+function toDegrees(radians: number): number {
+  return radians * 180 / Math.PI;
+}
+
+/**
  * Get detailed route between two points using Mapbox Directions API
  * Returns turn-by-turn accurate route with real road geometry
+ * Falls back to great circle route for long distances (ocean freight)
  */
 export async function getDetailedRoute(
   origin: { latitude: number; longitude: number },
@@ -92,7 +205,17 @@ export async function getDetailedRoute(
 ): Promise<DetailedRoute | null> {
   if (!MAPBOX_TOKEN) {
     console.error("Mapbox token not configured");
-    return null;
+    // Fall back to great circle route
+    return calculateGreatCircleRoute(origin, destination, waypoints);
+  }
+
+  // Calculate distance to determine if we should use Mapbox API or great circle
+  const distance = calculateHaversineDistance(origin, destination);
+  
+  // If distance > 500km, use great circle (likely ocean/international route)
+  if (distance > 500) {
+    console.log(`Distance ${Math.round(distance)}km exceeds 500km threshold, using great circle route`);
+    return calculateGreatCircleRoute(origin, destination, waypoints);
   }
 
   try {
@@ -107,7 +230,10 @@ export async function getDetailedRoute(
 
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Directions API failed: ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      console.warn('Mapbox Directions API Error, falling back to great circle:', errorData);
+      // Fall back to great circle route
+      return calculateGreatCircleRoute(origin, destination, waypoints);
     }
 
     const data = await response.json();
@@ -131,10 +257,12 @@ export async function getDetailedRoute(
       };
     }
 
-    return null;
+    // Fall back to great circle if no routes returned
+    return calculateGreatCircleRoute(origin, destination, waypoints);
   } catch (error) {
-    console.error("Error fetching detailed route:", error);
-    return null;
+    console.error("Error fetching detailed route, using great circle:", error);
+    // Fall back to great circle route
+    return calculateGreatCircleRoute(origin, destination, waypoints);
   }
 }
 

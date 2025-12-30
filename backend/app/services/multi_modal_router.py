@@ -508,11 +508,44 @@ class MultiModalRouter:
                     raise Exception(f"Failed to calculate road route: {str(e)}. Cannot proceed without valid routing data.")
             
             else:
-                # Long domestic route - consider rail
-                raise NotImplementedError(
-                    f"Long domestic routes (>{self.DISTANCE_THRESHOLDS['domestic_truck_max']}km) require rail coordination. "
-                    f"This feature requires rail network integration. Distance: {direct_distance:.0f}km"
-                )
+                # Long domestic route (>1500km) - Use truck transport with increased costs
+                # In production, this would use rail network, but for now we use long-haul trucking
+                try:
+                    distance, duration, coordinates = await self.get_road_route(origin, destination)
+                    
+                    # Long-haul trucking has higher cost multiplier
+                    long_haul_multiplier = 1.3  # 30% premium for long-distance trucking
+                    base_cost = distance * self.COST_PER_KM_TON[TransportMode.TRUCK] * cargo_weight_tons * long_haul_multiplier
+                    
+                    # Apply fixed costs
+                    base_cost += 500  # Fixed truck costs
+                    
+                    # Add time multiplier for long distances (rest stops, driver changes)
+                    long_distance_time_multiplier = 1.2
+                    adj_duration = duration * long_distance_time_multiplier
+                    adj_cost = base_cost
+                    
+                    cost_explanation = (
+                        f"Long-haul truck route ({distance:.0f}km). "
+                        f"Premium applied for distance. "
+                        f"Note: Rail transport would be more cost-effective for this distance."
+                    )
+                    
+                    segment = RouteSegment(
+                        segment_type=SegmentType.DIRECT,
+                        transport_mode=TransportMode.TRUCK,
+                        origin=origin,
+                        destination=destination,
+                        distance_km=distance,
+                        duration_hours=adj_duration,
+                        cost_usd=adj_cost,
+                        coordinates=coordinates,
+                        description=f"Long-haul truck transport from {origin.name} to {destination.name}. {cost_explanation}"
+                    )
+                    segments.append(segment)
+                    
+                except Exception as e:
+                    raise Exception(f"Failed to calculate long-haul road route: {str(e)}. Cannot proceed without valid routing data.")
         
         else:
             # === INTERNATIONAL ROUTING ===
