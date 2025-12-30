@@ -1,9 +1,5 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@backend_url",
-    "NEXT_PUBLIC_MAPBOX_TOKEN": "@mapbox_token"
-  }
+  "outputDirectory": ".next"
 }
