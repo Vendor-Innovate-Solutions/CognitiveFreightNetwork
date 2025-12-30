@@ -115,7 +115,7 @@ class UnifiedDatabaseService:
             query = db.query(SQLShipment).filter(SQLShipment.company_id == company_id)
             if status:
                 query = query.filter(SQLShipment.status == status)
-            return query.offset(offset).limit(limit).order_by(SQLShipment.created_at.desc()).all()
+            return query.order_by(SQLShipment.created_at.desc()).offset(offset).limit(limit).all()
     
     def get_shipment_by_id(self, shipment_id: Union[str, int], db: Optional[Session] = None):
         """Get shipment by ID"""
