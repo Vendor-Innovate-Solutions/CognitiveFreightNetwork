@@ -142,7 +142,7 @@ class MultiModalRouter:
     MAJOR_AIRPORTS = {
         # India
         "Mumbai Airport": Location("Chhatrapati Shivaji Int'l", 19.0896, 72.8656, "India", "airport"),
-        "Delhi Airport": Location("Indira Gandhi Int'l", 28.5562, 77.1000, "India", "airport"),
+        "Delhi Airport": Location("Indira Gandhi Int'l", 28.5562, 77.1000, "India", "airport"),  # Airport is slightly different from city center
         "Bangalore Airport": Location("Kempegowda Int'l", 13.1986, 77.7066, "India", "airport"),
         "Chennai Airport": Location("Chennai Int'l", 12.9941, 80.1709, "India", "airport"),
         "Kolkata Airport": Location("Netaji Subhas Chandra Bose Int'l", 22.6547, 88.4467, "India", "airport"),
@@ -193,15 +193,19 @@ class MultiModalRouter:
         """
         Geocode a location using Mapbox API
         Returns None if location cannot be found (NO FALLBACK)
+        Prioritizes Indian locations to prevent geocoding errors
         """
         if not MAPBOX_TOKEN:
             raise ValueError("MAPBOX_TOKEN not configured in environment")
         
+        # Add India bias and country filter for better accuracy
         url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{location_name}.json"
         params = {
             "access_token": MAPBOX_TOKEN,
             "types": "place,locality,region,country",
-            "limit": 1
+            "proximity": "78.9629,20.5937",  # Center of India for proximity bias
+            "country": "IN",  # Prioritize Indian locations
+            "limit": 5  # Get multiple results to find best match
         }
         
         async with aiohttp.ClientSession() as session:
@@ -214,7 +218,14 @@ class MultiModalRouter:
                 if not data.get("features"):
                     raise ValueError(f"Location '{location_name}' could not be found. Please check the spelling or provide a valid city name.")
                 
+                # Prefer Indian results
                 feature = data["features"][0]
+                for f in data["features"]:
+                    for context in f.get("context", []):
+                        if context["id"].startswith("country") and (context["text"] == "India" or context.get("short_code") == "in"):
+                            feature = f
+                            break
+                
                 longitude, latitude = feature["center"]
                 
                 # Extract country
