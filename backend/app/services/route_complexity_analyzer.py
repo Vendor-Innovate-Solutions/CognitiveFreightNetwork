@@ -482,8 +482,16 @@ class RouteComplexityAnalyzer:
         if not explanation_parts:
             explanation = "Ideal conditions - No penalties applied"
         else:
-            cost_increase = ((adjusted_cost / base_cost_usd) - 1) * 100
-            time_increase = ((adjusted_duration / base_duration_hours) - 1) * 100
+            # Safely calculate percentage increases with zero checks
+            if base_cost_usd > 0:
+                cost_increase = ((adjusted_cost / base_cost_usd) - 1) * 100
+            else:
+                cost_increase = 0
+            
+            if base_duration_hours > 0:
+                time_increase = ((adjusted_duration / base_duration_hours) - 1) * 100
+            else:
+                time_increase = 0
             
             explanation = f"Adjusted: +{cost_increase:.0f}% cost, +{time_increase:.0f}% time. " + "; ".join(explanation_parts)
         

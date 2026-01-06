@@ -132,6 +132,8 @@ async def login_company(
 ):
     """Login with email and password"""
     
+    print(f"🔐 Login attempt for: {form_data.username}")
+    
     company = AuthService.authenticate_company(
         db=db,
         email=form_data.username,  # OAuth2 uses 'username' field
@@ -139,11 +141,14 @@ async def login_company(
     )
     
     if not company:
+        print(f"❌ Authentication failed for: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    print(f"✅ Authentication successful for: {form_data.username}")
     
     # Handle both dict (MongoDB) and object (SQLAlchemy) cases
     company_email = company["email"] if isinstance(company, dict) else company.email
@@ -153,6 +158,8 @@ async def login_company(
     access_token = AuthService.create_access_token(
         data={"sub": company_email}
     )
+    
+    print(f"🎫 Token created for: {company_name}")
     
     return Token(
         access_token=access_token,
@@ -639,6 +646,14 @@ async def plan_multi_modal_route(
     
     Raises errors if route cannot be calculated - NO DEFAULT VALUES
     """
+    import sys
+    
+    print("=" * 80, file=sys.stderr, flush=True)
+    print(f"🎯 ENDPOINT HIT: /api/route/multi-modal", file=sys.stderr, flush=True)
+    print(f"📍 Origin: {origin}, Destination: {destination}", file=sys.stderr, flush=True)
+    print(f"📦 Cargo: {cargo_weight_tons}t", file=sys.stderr, flush=True)
+    print("=" * 80, file=sys.stderr, flush=True)
+    
     import os
     
     # Validate MAPBOX_TOKEN
@@ -652,8 +667,8 @@ async def plan_multi_modal_route(
     try:
         from app.services.multi_modal_router import MultiModalRouter
         
-        print(f"🚛 Planning multi-modal route: {origin} → {destination}")
-        print(f"   Cargo: {cargo_weight_tons}t, Urgent: {is_urgent}, Avoid Air: {avoid_air}")
+        print(f"🚛 Planning multi-modal route: {origin} → {destination}", file=sys.stderr, flush=True)
+        print(f"   Cargo: {cargo_weight_tons}t, Urgent: {is_urgent}, Avoid Air: {avoid_air}", file=sys.stderr, flush=True)
         
         router_instance = MultiModalRouter()
         route = await router_instance.plan_route(
@@ -664,7 +679,7 @@ async def plan_multi_modal_route(
             avoid_air=avoid_air
         )
         
-        print(f"✅ Route calculated: {route.total_distance_km}km, {route.total_duration_hours}h, ${route.total_cost_usd}")
+        print(f"✅ Route calculated: {route.total_distance_km}km, {route.total_duration_hours}h, ${route.total_cost_usd}", file=sys.stderr, flush=True)
         
         # Convert to JSON-serializable format
         return {
@@ -717,15 +732,15 @@ async def plan_multi_modal_route(
     
     except ValueError as ve:
         # User input errors (invalid location, etc.)
-        print(f"❌ Validation error: {str(ve)}")
+        print(f"❌ Validation error: {str(ve)}", file=sys.stderr, flush=True)
         raise HTTPException(status_code=400, detail=str(ve))
     except NotImplementedError as nie:
         # Features not yet implemented
-        print(f"⚠️  Not implemented: {str(nie)}")
+        print(f"⚠️  Not implemented: {str(nie)}", file=sys.stderr, flush=True)
         raise HTTPException(status_code=501, detail=str(nie))
     except Exception as e:
         # Other errors
-        print(f"❌ Route planning error: {str(e)}")
+        print(f"❌ Route planning error: {str(e)}", file=sys.stderr, flush=True)
         import traceback
         traceback.print_exc()
         raise HTTPException(

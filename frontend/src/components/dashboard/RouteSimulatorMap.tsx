@@ -68,9 +68,10 @@ function RouteSimulatorMapInner({
   }>>({});
 
   const fitMapToRoutes = React.useCallback(() => {
-    if (!map.current) return;
+    if (!map.current || !map.current.isStyleLoaded()) return;
 
     const bounds = new mapboxgl.LngLatBounds();
+    let hasCoordinates = false;
 
     simulationData.routes.forEach((route) => {
       // Use segment coordinates if available, otherwise use route coordinates
@@ -78,23 +79,35 @@ function RouteSimulatorMapInner({
         route.segments.forEach(segment => {
           segment.coordinates.forEach((coord) => {
             bounds.extend([coord.longitude, coord.latitude]);
+            hasCoordinates = true;
           });
         });
-      } else {
+      } else if (route.coordinates && route.coordinates.length > 0) {
         route.coordinates.forEach((coord) => {
           bounds.extend([coord.longitude, coord.latitude]);
+          hasCoordinates = true;
         });
       }
     });
 
     simulationData.events.forEach((event) => {
-      bounds.extend([event.location.longitude, event.location.latitude]);
+      if (event.location) {
+        bounds.extend([event.location.longitude, event.location.latitude]);
+        hasCoordinates = true;
+      }
     });
 
-    map.current.fitBounds(bounds, {
-      padding: 50,
-      duration: 1000,
-    });
+    if (hasCoordinates) {
+      try {
+        map.current.fitBounds(bounds, {
+          padding: { top: 80, bottom: 80, left: 80, right: 80 },
+          duration: 1500,
+          maxZoom: 15
+        });
+      } catch (error) {
+        console.error("Error fitting bounds:", error);
+      }
+    }
   }, [simulationData]);
 
   useEffect(() => {
@@ -102,12 +115,29 @@ function RouteSimulatorMapInner({
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
+    // Calculate center from simulation data
+    let centerLng = 78.5;
+    let centerLat = 20.5;
+    
+    if (simulationData.routes.length > 0 && simulationData.routes[0].coordinates.length > 0) {
+      const firstRoute = simulationData.routes[0];
+      const coords = firstRoute.segments && firstRoute.segments.length > 0 
+        ? firstRoute.segments[0].coordinates 
+        : firstRoute.coordinates;
+      
+      if (coords.length > 0) {
+        const midIndex = Math.floor(coords.length / 2);
+        centerLng = coords[midIndex].longitude;
+        centerLat = coords[midIndex].latitude;
+      }
+    }
+
     try {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: "mapbox://styles/mapbox/dark-v11",
-        center: [86.5, 22.5],
-        zoom: 6,
+        center: [centerLng, centerLat],
+        zoom: 5,
       });
 
       map.current.on("load", () => {
@@ -121,7 +151,10 @@ function RouteSimulatorMapInner({
           addEventMarker(event);
         });
 
-        fitMapToRoutes();
+        // Fit map to routes after a short delay to ensure all layers are added
+        setTimeout(() => {
+          fitMapToRoutes();
+        }, 100);
 
         setIsLoading(false);
       });
@@ -490,32 +523,32 @@ function RouteSimulatorMapInner({
   }
 
   return (
-    <Card className="w-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden">
-      <CardHeader className="pb-4">
+    <Card className="w-full h-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden flex flex-col">
+      <CardHeader className="pb-3 pt-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-2xl font-bold text-foreground">
+            <CardTitle className="text-lg font-bold text-foreground">
               Route Simulator Map
             </CardTitle>
             {simulationData.metadata?.description && (
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {simulationData.metadata.description}
               </p>
             )}
           </div>
-          <div className="flex gap-4 text-sm">
+          <div className="flex gap-4 text-xs">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
+              <div className="w-6 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
               <span className="text-muted-foreground">Traditional Route</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-emerald-500"></div>
+              <div className="w-6 h-1 bg-emerald-500"></div>
               <span className="text-muted-foreground">AI-Optimized Route</span>
             </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-0 relative">
+      <CardContent className="p-0 relative flex-1 min-h-0">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
             <div className="text-center">
@@ -527,7 +560,7 @@ function RouteSimulatorMapInner({
         <div
           ref={mapContainer}
           className={`map-container ${className}`}
-          style={{ height }}
+          style={{ height: '100%', width: '100%' }}
         />
         
         {selectedRoute && (
@@ -578,84 +611,6 @@ function RouteSimulatorMapInner({
             </div>
           </div>
         )}
-
-        <div className="absolute top-4 right-4 w-80 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-10">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-bold text-sm text-card-foreground flex items-center gap-2">
-              🌤️ Route Weather
-            </h3>
-          </div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {[
-              { name: "Kolkata", lat: 22.57, lon: 88.36, temp: 28, weather: "☀️" },
-              { name: "Vizag", lat: 17.69, lon: 83.22, temp: 30, weather: "🌤️" },
-              { name: "Chennai", lat: 13.08, lon: 80.27, temp: 31, weather: "☁️" },
-              { name: "Paradip", lat: 20.32, lon: 86.62, temp: 29, weather: "⛅" },
-              { name: "Bay Center", lat: 15.0, lon: 85.0, temp: 27, weather: "🌈" },
-            ].map((loc, idx) => (
-              <div
-                key={idx}
-                className="bg-background/60 rounded-md p-2 border border-border hover:border-muted transition-all"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-card-foreground font-semibold text-xs truncate">{loc.name}</p>
-                    <p className="text-muted-foreground text-xs">{loc.lat}°, {loc.lon}°</p>
-                  </div>
-                  <div className="text-center flex-shrink-0">
-                    <div className="text-xl">{loc.weather}</div>
-                    <div className="text-card-foreground font-bold text-sm">{loc.temp}°C</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="absolute bottom-4 left-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-10">
-          <h3 className="font-bold text-lg mb-3 text-card-foreground">
-            Route Comparison
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            {simulationData.routes.map((route) => (
-              <div
-                key={route.id}
-                className="border-l-4 pl-3"
-                style={{ borderColor: route.color }}
-              >
-                <h4 className="font-semibold text-card-foreground mb-1">
-                  {route.name}
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  {route.stats.duration} • {route.stats.distance}
-                </p>
-                {route.stats.cost && (
-                  <p className="text-sm text-muted-foreground">
-                    ₹{route.stats.cost.toLocaleString()}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-          {simulationData.routes.length === 2 && (
-            <div className="mt-3 pt-3 border-t border-border">
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Time Saved</p>
-                  <p className="font-semibold text-card-foreground">4 hours</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Distance Saved</p>
-                  <p className="font-semibold text-card-foreground">55 km</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Cost Saved</p>
-                  <p className="font-semibold text-card-foreground">₹40,000</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       </CardContent>
     </Card>
   );

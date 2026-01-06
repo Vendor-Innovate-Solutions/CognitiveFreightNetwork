@@ -11,6 +11,7 @@ import { geocodeCity, getDetailedRoute, geocodeCities } from "@/lib/mapbox-geoco
 import { SimulationData, Route, RouteEvent } from "@/types/route";
 import { planMultiModalRoute, type MultiModalRoute, type RouteError } from "@/lib/multi-modal-api";
 import MultiModalRouteCard from "@/components/dashboard/MultiModalRouteCard";
+import { X, Maximize2 } from "lucide-react";
 
 // Route distance response from backend
 interface RouteDistanceData {
@@ -393,6 +394,7 @@ export default function DashboardPage() {
   const [routesLoading, setRoutesLoading] = useState(false);
   const [error, setError] = useState('');
   const [shipmentsToShow, setShipmentsToShow] = useState(5);
+  const [isMapFullView, setIsMapFullView] = useState(false);
   // Multi-modal routing state
   const [multiModalRoute, setMultiModalRoute] = useState<MultiModalRoute | null>(null);
   const [multiModalLoading, setMultiModalLoading] = useState(false);
@@ -410,7 +412,7 @@ export default function DashboardPage() {
   // Fetch route distances when selectedShipment changes
   useEffect(() => {
     if (selectedShipment) {
-      fetchRouteDistancesForShipment(selectedShipment);
+      // Fetch detailed routes (which includes geocoding)
       fetchDetailedRoutesForShipment(selectedShipment);
       fetchMultiModalRoute(selectedShipment);
     } else {
@@ -421,47 +423,86 @@ export default function DashboardPage() {
     }
   }, [selectedShipment]);
 
+  // Calculate distances when detailed routes or geocoded cities are updated
+  useEffect(() => {
+    if (selectedShipment && (detailedRoutes || geocodedCities.size > 0)) {
+      fetchRouteDistancesForShipment(selectedShipment);
+    }
+  }, [detailedRoutes, geocodedCities]);
+
   const fetchDetailedRoutesForShipment = async (shipment: Shipment) => {
     setRoutesLoading(true);
+    setDetailedRoutes(null); // Clear previous routes
+    
     try {
+      console.log(`Fetching routes for: ${shipment.origin_city} → ${shipment.destination_city}`);
+      
       // Geocode origin and destination
       const [originGeo, destGeo] = await Promise.all([
         geocodeCity(shipment.origin_city),
         geocodeCity(shipment.destination_city)
       ]);
 
-      if (originGeo && destGeo) {
-        // Update geocoded cities map
-        const newGeocodedCities = new Map(geocodedCities);
-        newGeocodedCities.set(shipment.origin_city, { lat: originGeo.coordinates.latitude, lng: originGeo.coordinates.longitude });
-        newGeocodedCities.set(shipment.destination_city, { lat: destGeo.coordinates.latitude, lng: destGeo.coordinates.longitude });
-        setGeocodedCities(newGeocodedCities);
+      if (!originGeo || !destGeo) {
+        console.error("Failed to geocode cities");
+        setRoutesLoading(false);
+        return;
+      }
 
-        // Fetch detailed routes from Mapbox Directions API
-        const [traditionalRoute, optimizedRoute] = await Promise.all([
-          getDetailedRoute(
-            originGeo.coordinates,
-            destGeo.coordinates,
-            undefined,
-            "driving"
-          ),
-          getDetailedRoute(
-            originGeo.coordinates,
-            destGeo.coordinates,
-            undefined,
-            "driving-traffic"
-          )
-        ]);
+      console.log(`Geocoded: ${shipment.origin_city} (${originGeo.coordinates.latitude}, ${originGeo.coordinates.longitude})`);
+      console.log(`Geocoded: ${shipment.destination_city} (${destGeo.coordinates.latitude}, ${destGeo.coordinates.longitude})`);
 
-        if (traditionalRoute && optimizedRoute) {
-          setDetailedRoutes({
-            traditional: traditionalRoute,
-            optimized: optimizedRoute
-          });
-        }
+      // Update geocoded cities map
+      const newGeocodedCities = new Map(geocodedCities);
+      newGeocodedCities.set(shipment.origin_city, { lat: originGeo.coordinates.latitude, lng: originGeo.coordinates.longitude });
+      newGeocodedCities.set(shipment.destination_city, { lat: destGeo.coordinates.latitude, lng: destGeo.coordinates.longitude });
+      setGeocodedCities(newGeocodedCities);
+
+      // Fetch detailed routes from Mapbox Directions API - try sequentially to avoid rate limits
+      console.log("Fetching traditional route...");
+      const traditionalRoute = await getDetailedRoute(
+        originGeo.coordinates,
+        destGeo.coordinates,
+        undefined,
+        "driving"
+      );
+
+      console.log("Fetching optimized route...");
+      const optimizedRoute = await getDetailedRoute(
+        originGeo.coordinates,
+        destGeo.coordinates,
+        undefined,
+        "driving-traffic"
+      );
+
+      // Use whatever routes we successfully fetched
+      if (traditionalRoute && optimizedRoute) {
+        console.log("Both routes fetched successfully");
+        setDetailedRoutes({
+          traditional: traditionalRoute,
+          optimized: optimizedRoute
+        });
+      } else if (traditionalRoute) {
+        // Use traditional route for both if optimized fails
+        console.log("Using traditional route for both");
+        setDetailedRoutes({
+          traditional: traditionalRoute,
+          optimized: traditionalRoute
+        });
+      } else if (optimizedRoute) {
+        // Use optimized route for both if traditional fails
+        console.log("Using optimized route for both");
+        setDetailedRoutes({
+          traditional: optimizedRoute,
+          optimized: optimizedRoute
+        });
+      } else {
+        console.log("No routes fetched, will use fallback routes");
+        // Routes will be null, createSimulationData will generate fallback routes
       }
     } catch (error) {
       console.error("Error fetching detailed routes:", error);
+      setDetailedRoutes(null);
     } finally {
       setRoutesLoading(false);
     }
@@ -496,15 +537,43 @@ export default function DashboardPage() {
 
   const fetchRouteDistancesForShipment = async (shipment: Shipment) => {
     setDistancesLoading(true);
-    const routeCities = getRouteCities(shipment.origin_city, shipment.destination_city);
     
     try {
-      const distances = await fetchRouteDistances(
-        shipment.origin_city,
-        shipment.destination_city,
-        routeCities
-      );
-      setRouteDistances(distances);
+      // Try to use the detailed routes data if available
+      if (detailedRoutes && detailedRoutes.traditional && detailedRoutes.optimized) {
+        const distances: RouteDistanceData = {
+          direct_distance_km: detailedRoutes.traditional.distance_km,
+          direct_duration_min: detailedRoutes.traditional.duration_hours * 60,
+          optimized_distance_km: detailedRoutes.optimized.distance_km,
+          optimized_duration_min: detailedRoutes.optimized.duration_hours * 60,
+          savings_distance_km: detailedRoutes.traditional.distance_km - detailedRoutes.optimized.distance_km,
+          savings_duration_min: (detailedRoutes.traditional.duration_hours - detailedRoutes.optimized.duration_hours) * 60,
+        };
+        setRouteDistances(distances);
+        setDistancesLoading(false);
+        return;
+      }
+
+      // Fallback: try to geocode and calculate distance
+      const originGeo = geocodedCities.get(shipment.origin_city);
+      const destGeo = geocodedCities.get(shipment.destination_city);
+      
+      if (originGeo && destGeo) {
+        const distance = calculateDistance(originGeo.lat, originGeo.lng, destGeo.lat, destGeo.lng);
+        const optimizedDistance = Math.round(distance * 1.15); // Assume 15% more for road distance
+        const directDuration = Math.round(distance / 60); // 60 km/h average
+        const optimizedDuration = Math.round(optimizedDistance / 65); // 65 km/h for optimized
+        
+        const distances: RouteDistanceData = {
+          direct_distance_km: distance,
+          direct_duration_min: directDuration * 60,
+          optimized_distance_km: optimizedDistance,
+          optimized_duration_min: optimizedDuration * 60,
+          savings_distance_km: distance - optimizedDistance,
+          savings_duration_min: (directDuration - optimizedDuration) * 60,
+        };
+        setRouteDistances(distances);
+      }
     } catch (error) {
       console.error('Failed to fetch route distances:', error);
       setRouteDistances(null);
@@ -553,24 +622,26 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#2C3E50]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-6 shadow-sm">
+      <div className="bg-[#34495E] border-b-2 border-[#3498DB] px-8 py-6 shadow-2xl">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">CFN Dashboard</h1>
-            <p className="text-gray-700 font-medium">Welcome back, {company?.name || 'User'}</p>
+            <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+              <span>🚚</span> CFN Dashboard
+            </h1>
+            <p className="text-blue-200 font-medium text-lg">Welcome back, {company?.name || 'User'}</p>
           </div>
           <div className="flex items-center space-x-4">
             <button
               onClick={() => router.push('/plan-shipment')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+              className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-500 transition-all font-bold shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
             >
-              Plan New Shipment
+              <span>➕</span> Plan New Shipment
             </button>
             <button
               onClick={logout}
-              className="text-gray-600 hover:text-gray-800 transition-colors font-medium px-4 py-2"
+              className="text-blue-200 hover:text-white transition-colors font-medium px-6 py-3 border border-blue-400 rounded-lg hover:bg-blue-800"
             >
               Logout
             </button>
@@ -578,64 +649,66 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="p-8 max-w-7xl mx-auto">
+      {/* Main Content */}
+      <div className="p-4 bg-[#2C3E50] space-y-4">
+        
         {/* Analytics Cards */}
         {analytics && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card className="p-6 border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-5 bg-[#34495E] border-2 border-[#3498DB] shadow-xl hover:shadow-[#3498DB]/50 transition-all transform hover:scale-105">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Total Shipments</p>
-                  <p className="text-3xl font-bold text-gray-900">{analytics.total_shipments}</p>
-                  <p className="text-xs text-gray-500 mt-1">Last {analytics.period}</p>
+                  <p className="text-sm font-bold text-[#3498DB] uppercase tracking-wide mb-2">📦 Shipments</p>
+                  <p className="text-3xl font-bold text-white">{analytics.total_shipments}</p>
+                  <p className="text-xs text-blue-200 mt-1">{analytics.period}</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-[#3498DB] rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m8-8h4v4" />
                   </svg>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6 border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <Card className="p-5 bg-[#34495E] border-2 border-[#27AE60] shadow-xl hover:shadow-[#27AE60]/50 transition-all transform hover:scale-105">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Total Revenue</p>
-                  <p className="text-3xl font-bold text-gray-900">₹{analytics.total_revenue.toLocaleString()}</p>
-                  <p className="text-xs text-green-600 mt-1">↗ Profit: ₹{analytics.profit.toLocaleString()}</p>
+                  <p className="text-sm font-bold text-[#27AE60] uppercase tracking-wide mb-2">💰 Revenue</p>
+                  <p className="text-3xl font-bold text-white">₹{analytics.total_revenue.toLocaleString()}</p>
+                  <p className="text-xs text-green-200 mt-1">↗ Profit: ₹{analytics.profit.toLocaleString()}</p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-[#27AE60] rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                   </svg>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6 border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <Card className="p-5 bg-[#34495E] border-2 border-[#9B59B6] shadow-xl hover:shadow-[#9B59B6]/50 transition-all transform hover:scale-105">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Profit Margin</p>
-                  <p className="text-3xl font-bold text-gray-900">{analytics.profit_margin_percentage.toFixed(1)}%</p>
-                  <p className="text-xs text-gray-500 mt-1">Revenue - Costs</p>
+                  <p className="text-sm font-bold text-[#9B59B6] uppercase tracking-wide mb-2">📈 Margin</p>
+                  <p className="text-3xl font-bold text-white">{analytics.profit_margin_percentage.toFixed(1)}%</p>
+                  <p className="text-xs text-purple-200 mt-1">Revenue - Costs</p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-[#9B59B6] rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
                   </svg>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6 border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <Card className="p-5 bg-[#34495E] border-2 border-[#E67E22] shadow-xl hover:shadow-[#E67E22]/50 transition-all transform hover:scale-105">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">On-Time Delivery</p>
-                  <p className="text-3xl font-bold text-gray-900">{(analytics.on_time_delivery_rate * 100).toFixed(1)}%</p>
-                  <p className="text-xs text-blue-600 mt-1">Reliability Score</p>
+                  <p className="text-sm font-bold text-[#E67E22] uppercase tracking-wide mb-2">⏱️ On-Time</p>
+                  <p className="text-3xl font-bold text-white">{(analytics.on_time_delivery_rate * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-orange-200 mt-1">Avg: {analytics.avg_delay_hours.toFixed(1)}h</p>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-[#E67E22] rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -646,13 +719,13 @@ export default function DashboardPage() {
 
         {/* Error or No Data State */}
         {error && (
-          <Card className="p-8 mb-8 bg-yellow-50 border-2 border-yellow-300 shadow-md">
+          <Card className="p-8 bg-[#34495E] border-2 border-[#3498DB] shadow-xl">
             <div className="text-center">
-              <h3 className="text-xl font-bold text-yellow-900 mb-3">No Data Available</h3>
-              <p className="text-yellow-800 font-medium mb-6">Add historical shipment data to see analytics and train ML models.</p>
+              <h3 className="text-xl font-bold text-white mb-3">No Data Available</h3>
+              <p className="text-blue-200 font-medium mb-6">Add historical shipment data to see analytics and train ML models.</p>
               <button
                 onClick={() => router.push('/plan-shipment')}
-                className="bg-yellow-600 text-white px-8 py-3 rounded-lg hover:bg-yellow-700 transition-colors font-bold shadow-sm"
+                className="bg-[#3498DB] text-white px-8 py-3 rounded-lg hover:bg-[#2980B9] transition-colors font-bold shadow-sm"
               >
                 Create Your First Shipment
               </button>
@@ -660,46 +733,217 @@ export default function DashboardPage() {
           </Card>
         )}
 
+        {/* Map Section with Weather - 70:30 Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-4" style={{ height: '600px' }}>
+          {/* Map - 70% */}
+          <div className="lg:col-span-7 bg-[#34495E] rounded-2xl border-2 border-[#3498DB] shadow-2xl overflow-hidden h-full">
+            {selectedShipment ? (
+              <div className="h-full flex flex-col">
+                <div className="p-3 border-b-2 border-[#3498DB] flex-shrink-0 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <span>🗺️</span> Route Simulator Map
+                    </h2>
+                    <p className="text-blue-200 text-xs mt-1">
+                      {selectedShipment.origin_city} → {selectedShipment.destination_city}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsMapFullView(true)}
+                    className="p-2 bg-[#3498DB] hover:bg-[#2980B9] rounded-lg transition-colors"
+                    title="Full Screen View"
+                  >
+                    <Maximize2 className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+                <div className="flex-1 p-2 min-h-0">
+                  {routesLoading ? (
+                    <div className="h-full flex items-center justify-center bg-[#2C3E50] rounded-xl">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3498DB] mx-auto mb-3"></div>
+                        <p className="text-white text-sm">Loading accurate route...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <RouteSimulatorMap 
+                      key={`${selectedShipment._id}-${detailedRoutes ? 'loaded' : 'loading'}`}
+                      simulationData={createSimulationData(selectedShipment, routeDistances, geocodedCities, detailedRoutes)}
+                      height="100%"
+                      className="rounded-xl overflow-hidden shadow-inner h-full w-full"
+                    />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-6xl mb-3">🗺️</div>
+                  <p className="text-white text-xl font-bold mb-2">Route Visualization</p>
+                  <p className="text-blue-200 text-sm">Select a shipment to view the route on the map</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Weather Component - 30% */}
+          {selectedShipment && (
+            <div className="lg:col-span-3 bg-[#34495E] rounded-2xl border-2 border-[#3498DB] shadow-2xl overflow-hidden h-full">
+              <div className="h-full flex flex-col">
+                <div className="p-3 border-b-2 border-[#3498DB] flex-shrink-0">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    🌤️ Route Weather
+                  </h3>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3">
+                  <div className="space-y-2">
+                    {[
+                      { name: "Kolkata", lat: 22.57, lon: 88.36, temp: 28, weather: "☀️" },
+                      { name: "Vizag", lat: 17.69, lon: 83.22, temp: 30, weather: "🌤️" },
+                      { name: "Chennai", lat: 13.08, lon: 80.27, temp: 31, weather: "☁️" },
+                      { name: "Paradip", lat: 20.32, lon: 86.62, temp: 29, weather: "⛅" },
+                      { name: "Bay Center", lat: 15.0, lon: 85.0, temp: 27, weather: "🌈" },
+                    ].map((loc, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-[#2C3E50] rounded-lg p-3 border border-[#34495E] hover:border-[#3498DB] transition-all"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold text-sm truncate">{loc.name}</p>
+                            <p className="text-blue-200 text-xs">{loc.lat}°, {loc.lon}°</p>
+                          </div>
+                          <div className="text-center flex-shrink-0">
+                            <div className="text-2xl mb-1">{loc.weather}</div>
+                            <div className="text-white font-bold text-lg">{loc.temp}°C</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Full View Map Modal */}
+        {isMapFullView && selectedShipment && (
+          <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+            <div className="w-full h-full max-w-[98vw] max-h-[98vh] bg-[#34495E] rounded-2xl border-2 border-[#3498DB] shadow-2xl overflow-hidden flex flex-col">
+              <div className="p-4 border-b-2 border-[#3498DB] flex-shrink-0 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <span>🗺️</span> Route Simulator Map - Full View
+                  </h2>
+                  <p className="text-blue-200 text-sm mt-1">
+                    {selectedShipment.origin_city} → {selectedShipment.destination_city}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsMapFullView(false)}
+                  className="p-2 bg-red-500 hover:bg-red-600 rounded-lg transition-colors"
+                  title="Close Full Screen"
+                >
+                  <X className="w-6 h-6 text-white" />
+                </button>
+              </div>
+              <div className="flex-1 p-4 min-h-0">
+                <RouteSimulatorMap 
+                  key={`fullview-${selectedShipment._id}-${detailedRoutes ? 'loaded' : 'loading'}`}
+                  simulationData={createSimulationData(selectedShipment, routeDistances, geocodedCities, detailedRoutes)}
+                  height="100%"
+                  className="rounded-xl overflow-hidden shadow-inner h-full w-full"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Route Comparison Stats */}
+        {selectedShipment && (
+          <Card className="bg-[#34495E] border-2 border-[#3498DB] shadow-xl">
+            <div className="p-4">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <span>📊</span> Route Comparison
+              </h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-[#2C3E50] p-3 rounded-lg border border-[#34495E]">
+                  <p className="text-blue-300 text-sm mb-1">Time Saved</p>
+                  <p className="text-white font-bold text-xl">
+                    {routeDistances && routeDistances.savings_duration_min > 0
+                      ? `${Math.round(routeDistances.savings_duration_min / 60)} hours`
+                      : multiModalRoute
+                      ? `${multiModalRoute.total_duration_hours.toFixed(1)} h`
+                      : 'Calculating...'}
+                  </p>
+                </div>
+                <div className="bg-[#2C3E50] p-3 rounded-lg border border-[#34495E]">
+                  <p className="text-blue-300 text-sm mb-1">Distance Saved</p>
+                  <p className="text-white font-bold text-xl">
+                    {routeDistances && routeDistances.savings_distance_km > 0
+                      ? `${Math.round(routeDistances.savings_distance_km)} km`
+                      : multiModalRoute
+                      ? `${multiModalRoute.total_distance_km.toFixed(0)} km`
+                      : 'Calculating...'}
+                  </p>
+                </div>
+                <div className="bg-[#2C3E50] p-3 rounded-lg border border-[#34495E]">
+                  <p className="text-blue-300 text-sm mb-1">Estimated Cost</p>
+                  <p className="text-white font-bold text-xl">
+                    {multiModalRoute
+                      ? `₹${Math.round(multiModalRoute.total_cost_usd * 83).toLocaleString()}`
+                      : selectedShipment.predicted_cost
+                      ? `₹${selectedShipment.predicted_cost.toLocaleString()}`
+                      : 'Calculating...'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Shipments Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Shipments List */}
-          <Card className="p-6 border border-gray-200 bg-white shadow-sm flex flex-col" style={{ height: 'fit-content', maxHeight: '800px' }}>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Shipments</h2>
+          <Card className="p-4 bg-[#34495E] border-2 border-[#3498DB] shadow-xl flex flex-col" style={{ height: 'fit-content', maxHeight: '600px' }}>
+            <h2 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+              <span>📦</span> Recent Shipments
+            </h2>
             {shipments.length > 0 ? (
               <>
-                <div className="space-y-4 overflow-y-auto flex-1" style={{ maxHeight: '600px' }}>
+                <div className="space-y-2 overflow-y-auto flex-1" style={{ maxHeight: '480px' }}>
                   {shipments.slice(0, shipmentsToShow).map((shipment) => (
-                  <div
-                    key={shipment._id}
-                    className={`bg-white border-2 rounded-lg p-5 cursor-pointer transition-all duration-200 hover:shadow-md ${
-                      selectedShipment?._id === shipment._id
-                        ? "border-blue-500 bg-blue-50 shadow-lg"
-                        : "border-gray-200 hover:border-blue-300"
-                    }`}
-                    onClick={() => setSelectedShipment(shipment)}
-                  >
+                    <div
+                      key={shipment._id}
+                      className={`border-2 rounded-lg p-3 cursor-pointer transition-all duration-200 ${
+                        selectedShipment?._id === shipment._id
+                          ? "bg-[#3498DB] border-[#2980B9] shadow-lg scale-[1.01]"
+                          : "bg-[#2C3E50] border-[#34495E] hover:border-[#3498DB] hover:shadow-md"
+                      }`}
+                      onClick={() => setSelectedShipment(shipment)}
+                    >
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-bold text-gray-900 text-lg mb-1">{shipment.shipment_ref}</h4>
-                        <p className="text-gray-700 font-medium mb-2">
+                        <h4 className="font-bold text-white text-base mb-1">{shipment.shipment_ref}</h4>
+                        <p className="text-blue-100 font-medium text-sm mb-1">
                           {shipment.origin_city} → {shipment.destination_city}
                         </p>
-                        <p className="text-sm text-gray-600">
-                          {shipment.cargo_type} • {shipment.cargo_weight_tons}t • {shipment.transport_mode}
+                        <p className="text-xs text-blue-200">
+                          {shipment.cargo_type} • {shipment.cargo_weight_tons}t
                         </p>
                       </div>
                       <div className="text-right">
                         <span
                         className={`inline-flex px-3 py-1 text-xs font-bold rounded-full ${
-                          shipment.status === 'completed' ? 'bg-green-100 text-green-900 border border-green-200' :
-                          shipment.status === 'in_transit' ? 'bg-blue-100 text-blue-900 border border-blue-200' :
-                          shipment.status === 'pending' || shipment.status === 'planned' ? 'bg-yellow-100 text-yellow-900 border border-yellow-200' :
-                          'bg-gray-100 text-gray-900 border border-gray-200'
+                          shipment.status === 'completed' ? 'bg-green-500 text-white shadow-lg' :
+                          shipment.status === 'in_transit' ? 'bg-blue-400 text-white shadow-lg' :
+                          shipment.status === 'pending' || shipment.status === 'planned' ? 'bg-yellow-500 text-white shadow-lg' :
+                          'bg-gray-500 text-white shadow-lg'
                         }`}
                         >
                           {shipment.status.replace('_', ' ')}
                         </span>
-                        <p className="text-sm text-gray-800 font-bold mt-2">
+                        <p className="text-xs text-white font-bold mt-1">
                           ₹{(shipment.total_cost || shipment.predicted_cost || 0).toLocaleString()}
                         </p>
                       </div>
@@ -710,73 +954,75 @@ export default function DashboardPage() {
                 {shipments.length > shipmentsToShow && (
                   <button
                     onClick={() => setShipmentsToShow(prev => prev + 5)}
-                    className="mt-4 w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                    className="mt-3 w-full py-2 bg-[#3498DB] text-white font-bold rounded-xl hover:bg-[#2980B9] transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
                   >
-                    View More ({shipments.length - shipmentsToShow} remaining)
+                    📥 View More ({shipments.length - shipmentsToShow} remaining)
                   </button>
                 )}
                 {shipmentsToShow > 5 && (
                   <button
                     onClick={() => setShipmentsToShow(5)}
-                    className="mt-2 w-full py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                    className="mt-2 w-full py-2 bg-[#2C3E50] text-blue-200 font-bold rounded-xl hover:bg-[#34495E] transition-all text-sm"
                   >
-                    Show Less
+                    ⬆️ Show Less
                   </button>
                 )}
               </>
             ) : (
-              <div className="text-center py-16">
-                <p className="text-gray-600 text-lg font-medium mb-4">No shipments found.</p>
+              <div className="text-center py-12">
+                <p className="text-blue-200 text-lg font-medium mb-4">📭 No shipments found.</p>
                 <button
                   onClick={() => router.push('/plan-shipment')}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-bold shadow-sm"
+                  className="bg-[#3498DB] text-white px-6 py-2 rounded-xl hover:bg-[#2980B9] transition-all font-bold shadow-lg transform hover:scale-105"
                 >
-                  Create First Shipment
+                  ✨ Create First Shipment
                 </button>
               </div>
             )}
           </Card>
 
           {/* Shipment Details */}
-          <Card className="p-6 border border-blue-200 bg-white shadow-sm flex flex-col" style={{ height: 'fit-content', maxHeight: '800px' }}>
-            <h3 className="text-2xl font-bold text-blue-900 mb-6">Shipment Details</h3>
+          <Card className="p-4 bg-[#34495E] border-2 border-[#3498DB] shadow-xl flex flex-col" style={{ height: 'fit-content', maxHeight: '600px' }}>
+            <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+              <span>📋</span> Shipment Details
+            </h3>
             {selectedShipment ? (
-              <div className="space-y-4 overflow-y-auto flex-1" style={{ maxHeight: '700px' }}>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <h4 className="font-bold text-blue-900 text-xl mb-2">{selectedShipment.shipment_ref}</h4>
-                  <p className="text-blue-800 font-medium text-lg">{selectedShipment.origin_city} → {selectedShipment.destination_city}</p>
+              <div className="space-y-2 overflow-y-auto flex-1" style={{ maxHeight: '520px' }}>
+                <div className="bg-[#3498DB] p-3 rounded-lg border-2 border-[#2980B9] shadow-lg">
+                  <h4 className="font-bold text-white text-base mb-1">{selectedShipment.shipment_ref}</h4>
+                  <p className="text-white font-medium text-sm">{selectedShipment.origin_city} → {selectedShipment.destination_city}</p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex flex-col">
-                      <span className="text-blue-700 font-semibold text-sm mb-1">Status</span>
-                      <span className="text-blue-900 font-bold text-base">{selectedShipment.status.replace('_', ' ')}</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <div className="flex flex-col bg-[#2C3E50] p-2 rounded-lg border border-[#34495E]">
+                      <span className="text-[#3498DB] font-semibold text-xs mb-1">Status</span>
+                      <span className="text-white font-bold text-sm">{selectedShipment.status.replace('_', ' ')}</span>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex flex-col">
-                      <span className="text-blue-700 font-semibold text-sm mb-1">Weight</span>
-                      <span className="text-blue-900 font-bold text-base">{selectedShipment.cargo_weight_tons}t</span>
+                  <div className="space-y-2">
+                    <div className="flex flex-col bg-[#2C3E50] p-2 rounded-lg border border-[#34495E]">
+                      <span className="text-[#3498DB] font-semibold text-xs mb-1">Weight</span>
+                      <span className="text-white font-bold text-sm">{selectedShipment.cargo_weight_tons}t</span>
                     </div>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-blue-700 font-semibold text-sm mb-1">Distance</span>
-                    <span className="text-blue-900 font-bold text-base">
+                  <div className="flex flex-col bg-[#2C3E50] p-2 rounded-lg border border-[#34495E]">
+                    <span className="text-[#3498DB] font-semibold text-xs mb-1">Distance</span>
+                    <span className="text-white font-bold text-sm">
                       {multiModalLoading ? (
                         <span className="animate-pulse">Calculating...</span>
                       ) : multiModalRoute ? (
                         `${Math.round(multiModalRoute.total_distance_km)}km`
                       ) : multiModalError ? (
-                        <span className="text-red-600 text-xs">Cannot calculate</span>
+                        <span className="text-red-400 text-xs">Cannot calculate</span>
                       ) : (
-                        <span className="text-gray-400 text-xs">No route data</span>
+                        <span className="text-blue-300 text-xs">No route data</span>
                       )}
                     </span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-blue-700 font-semibold text-sm mb-1">Cost</span>
-                    <span className="text-blue-900 font-bold text-base">
+                  <div className="flex flex-col bg-[#2C3E50] p-2 rounded-lg border border-[#34495E]">
+                    <span className="text-[#3498DB] font-semibold text-xs mb-1">Cost</span>
+                    <span className="text-white font-bold text-sm">
                       {multiModalRoute ? (
                         `₹${Math.round(multiModalRoute.total_cost_usd * 83).toLocaleString()}`
                       ) : (
@@ -852,23 +1098,13 @@ export default function DashboardPage() {
                 )}
               </div>
             ) : (
-              <div className="text-center py-16">
-                <p className="text-gray-600 text-lg font-medium">Select a shipment to view details and route visualization</p>
+              <div className="text-center py-20">
+                <div className="text-6xl mb-4">📋</div>
+                <p className="text-blue-200 text-xl font-medium">Select a shipment to view details and route visualization</p>
               </div>
             )}
           </Card>
         </div>
-
-        {/* Interactive Route Map - Full Width Below */}
-        {selectedShipment && (
-          <div className="mt-8 mb-8">
-            <RouteSimulatorMap 
-              simulationData={createSimulationData(selectedShipment, routeDistances, geocodedCities, detailedRoutes)}
-              height="600px"
-              className="rounded-lg shadow-lg"
-            />
-          </div>
-        )}
       </div>
     </div>
   );

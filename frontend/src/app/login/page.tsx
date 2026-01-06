@@ -17,9 +17,13 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
 
+    console.log('🔐 Login attempt started:', { email });
+
     try {
       await login(email, password);
+      console.log('✅ Login successful');
     } catch (err: any) {
+      console.error('❌ Login error:', err);
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
@@ -101,6 +105,14 @@ export default function LoginPage() {
             <li>📊 Real-time analytics dashboard</li>
           </ul>
         </div>
+
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
+            <p className="font-medium mb-1">🔧 Debug Info:</p>
+            <p>API: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}</p>
+            <p>Test: test@company.com / test123</p>
+          </div>
+        )}
       </Card>
     </div>
   );

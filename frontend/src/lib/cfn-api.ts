@@ -236,15 +236,21 @@ class APIClient {
       params.append('status', status);
     }
 
-    const response = await fetch(`${API_BASE_URL}/shipments?${params}`, {
+    const url = `${API_BASE_URL}/shipments?${params}`;
+    console.log(`🔵 API Call: GET ${url}`);
+
+    const response = await fetch(url, {
       headers: this.getAuthHeaders(token),
     });
 
     if (!response.ok) {
+      console.error(`❌ API Error: GET /shipments - ${response.status} ${response.statusText}`);
       throw new Error('Failed to fetch shipments');
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log(`✅ API Response: GET /shipments - ${data.shipments?.length || 0} shipments`);
+    return data;
   }
 
   async getShipmentDetails(shipmentId: number, token?: string) {
@@ -262,15 +268,21 @@ class APIClient {
   // ==================== ANALYTICS ====================
 
   async getAnalytics(token?: string, period = '30d') {
-    const response = await fetch(`${API_BASE_URL}/analytics/dashboard?period=${period}`, {
+    const url = `${API_BASE_URL}/analytics/dashboard?period=${period}`;
+    console.log(`🔵 API Call: GET ${url}`);
+
+    const response = await fetch(url, {
       headers: this.getAuthHeaders(token),
     });
 
     if (!response.ok) {
+      console.error(`❌ API Error: GET /analytics/dashboard - ${response.status} ${response.statusText}`);
       throw new Error('Failed to fetch analytics');
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log(`✅ API Response: GET /analytics/dashboard`, data);
+    return data;
   }
 
   // ==================== HISTORICAL DATA ====================
