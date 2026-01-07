@@ -46,10 +46,12 @@ function RouteSimulatorMapInner({
   className = "",
 }: RouteSimulatorMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
+  const mapContainerWrapper = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [weatherAlongRoute, setWeatherAlongRoute] = useState<
     {
       latitude: number;
@@ -175,6 +177,47 @@ function RouteSimulatorMapInner({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simulationData, fitMapToRoutes]);
+
+  // Fullscreen toggle handler
+  const toggleFullscreen = () => {
+    if (!mapContainerWrapper.current) return;
+    
+    if (!document.fullscreenElement) {
+      mapContainerWrapper.current.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+        // Resize map after entering fullscreen
+        setTimeout(() => {
+          map.current?.resize();
+        }, 100);
+      }).catch((err) => {
+        console.error("Error attempting to enable fullscreen:", err);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+        // Resize map after exiting fullscreen
+        setTimeout(() => {
+          map.current?.resize();
+        }, 100);
+      });
+    }
+  };
+
+  // Listen for fullscreen changes (e.g., ESC key)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      // Resize map when fullscreen state changes
+      setTimeout(() => {
+        map.current?.resize();
+      }, 100);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   const addRouteToMap = (route: Route) => {
     if (!map.current) return;
@@ -523,7 +566,7 @@ function RouteSimulatorMapInner({
   }
 
   return (
-    <Card className="w-full h-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden flex flex-col">
+    <Card ref={mapContainerWrapper} className="w-full h-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden flex flex-col">
       <CardHeader className="pb-3 pt-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
@@ -557,6 +600,24 @@ function RouteSimulatorMapInner({
             </div>
           </div>
         )}
+        
+        {/* Fullscreen Button - Top Left Corner */}
+        <button
+          onClick={toggleFullscreen}
+          className="absolute top-4 left-4 z-20 bg-card/95 backdrop-blur-sm border border-border hover:bg-accent hover:text-accent-foreground rounded-lg p-2 shadow-lg transition-all duration-200 hover:scale-110"
+          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+        >
+          {isFullscreen ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          )}
+        </button>
+        
         <div
           ref={mapContainer}
           className={`map-container ${className}`}
@@ -564,7 +625,7 @@ function RouteSimulatorMapInner({
         />
         
         {selectedRoute && (
-          <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg max-w-xs z-10">
+          <div className="absolute top-4 left-16 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg max-w-xs z-10">
             <h3 className="font-bold text-lg mb-2 text-card-foreground">
               {selectedRoute.name}
             </h3>
