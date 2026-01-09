@@ -98,7 +98,7 @@ app.add_exception_handler(Exception, generic_exception_handler)
 # Include routers
 app.include_router(new_routes.router)
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     db_type = "MongoDB" if USE_MONGODB else "SQLAlchemy"
     return {

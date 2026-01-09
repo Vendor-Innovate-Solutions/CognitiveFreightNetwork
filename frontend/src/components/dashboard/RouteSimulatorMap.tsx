@@ -40,18 +40,57 @@ const getEventColor = (severity?: string): string => {
   return severity ? colors[severity] : "#3B82F6";
 };
 
+// Helper to parse duration string like "8h" or "27h" to hours
+const parseDuration = (duration: string): number => {
+  const match = duration.match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : 0;
+};
+
+// Helper to parse distance string like "377km" or "1363km" to km
+const parseDistance = (distance: string): number => {
+  const match = distance.match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : 0;
+};
+
+// Calculate savings between two routes
+const calculateSavings = (routes: Route[]): { timeSaved: string; distanceSaved: string; costSaved: string } => {
+  if (routes.length < 2) {
+    return { timeSaved: "0 hours", distanceSaved: "0 km", costSaved: "₹0" };
+  }
+  
+  // Find traditional (actual) and optimized routes
+  const traditionalRoute = routes.find(r => r.type === "actual") || routes[0];
+  const optimizedRoute = routes.find(r => r.type === "optimized") || routes[1];
+  
+  const traditionalTime = parseDuration(traditionalRoute.stats.duration);
+  const optimizedTime = parseDuration(optimizedRoute.stats.duration);
+  const timeSaved = Math.max(0, traditionalTime - optimizedTime);
+  
+  const traditionalDist = parseDistance(traditionalRoute.stats.distance);
+  const optimizedDist = parseDistance(optimizedRoute.stats.distance);
+  const distanceSaved = Math.max(0, traditionalDist - optimizedDist);
+  
+  const traditionalCost = traditionalRoute.stats.cost || 0;
+  const optimizedCost = optimizedRoute.stats.cost || 0;
+  const costSaved = Math.max(0, traditionalCost - optimizedCost);
+  
+  return {
+    timeSaved: `${timeSaved.toFixed(0)} hours`,
+    distanceSaved: `${distanceSaved.toFixed(0)} km`,
+    costSaved: `₹${costSaved.toLocaleString()}`
+  };
+};
+
 function RouteSimulatorMapInner({
   simulationData,
   height = "600px",
   className = "",
 }: RouteSimulatorMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapContainerWrapper = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [weatherAlongRoute, setWeatherAlongRoute] = useState<
     {
       latitude: number;
@@ -70,10 +109,9 @@ function RouteSimulatorMapInner({
   }>>({});
 
   const fitMapToRoutes = React.useCallback(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
+    if (!map.current) return;
 
     const bounds = new mapboxgl.LngLatBounds();
-    let hasCoordinates = false;
 
     simulationData.routes.forEach((route) => {
       // Use segment coordinates if available, otherwise use route coordinates
@@ -81,35 +119,23 @@ function RouteSimulatorMapInner({
         route.segments.forEach(segment => {
           segment.coordinates.forEach((coord) => {
             bounds.extend([coord.longitude, coord.latitude]);
-            hasCoordinates = true;
           });
         });
-      } else if (route.coordinates && route.coordinates.length > 0) {
+      } else {
         route.coordinates.forEach((coord) => {
           bounds.extend([coord.longitude, coord.latitude]);
-          hasCoordinates = true;
         });
       }
     });
 
     simulationData.events.forEach((event) => {
-      if (event.location) {
-        bounds.extend([event.location.longitude, event.location.latitude]);
-        hasCoordinates = true;
-      }
+      bounds.extend([event.location.longitude, event.location.latitude]);
     });
 
-    if (hasCoordinates) {
-      try {
-        map.current.fitBounds(bounds, {
-          padding: { top: 80, bottom: 80, left: 80, right: 80 },
-          duration: 1500,
-          maxZoom: 15
-        });
-      } catch (error) {
-        console.error("Error fitting bounds:", error);
-      }
-    }
+    map.current.fitBounds(bounds, {
+      padding: 50,
+      duration: 1000,
+    });
   }, [simulationData]);
 
   useEffect(() => {
@@ -117,29 +143,12 @@ function RouteSimulatorMapInner({
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Calculate center from simulation data
-    let centerLng = 78.5;
-    let centerLat = 20.5;
-    
-    if (simulationData.routes.length > 0 && simulationData.routes[0].coordinates.length > 0) {
-      const firstRoute = simulationData.routes[0];
-      const coords = firstRoute.segments && firstRoute.segments.length > 0 
-        ? firstRoute.segments[0].coordinates 
-        : firstRoute.coordinates;
-      
-      if (coords.length > 0) {
-        const midIndex = Math.floor(coords.length / 2);
-        centerLng = coords[midIndex].longitude;
-        centerLat = coords[midIndex].latitude;
-      }
-    }
-
     try {
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: "mapbox://styles/mapbox/dark-v11",
-        center: [centerLng, centerLat],
-        zoom: 5,
+        center: [86.5, 22.5],
+        zoom: 6,
       });
 
       map.current.on("load", () => {
@@ -153,10 +162,7 @@ function RouteSimulatorMapInner({
           addEventMarker(event);
         });
 
-        // Fit map to routes after a short delay to ensure all layers are added
-        setTimeout(() => {
-          fitMapToRoutes();
-        }, 100);
+        fitMapToRoutes();
 
         setIsLoading(false);
       });
@@ -177,47 +183,6 @@ function RouteSimulatorMapInner({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simulationData, fitMapToRoutes]);
-
-  // Fullscreen toggle handler
-  const toggleFullscreen = () => {
-    if (!mapContainerWrapper.current) return;
-    
-    if (!document.fullscreenElement) {
-      mapContainerWrapper.current.requestFullscreen().then(() => {
-        setIsFullscreen(true);
-        // Resize map after entering fullscreen
-        setTimeout(() => {
-          map.current?.resize();
-        }, 100);
-      }).catch((err) => {
-        console.error("Error attempting to enable fullscreen:", err);
-      });
-    } else {
-      document.exitFullscreen().then(() => {
-        setIsFullscreen(false);
-        // Resize map after exiting fullscreen
-        setTimeout(() => {
-          map.current?.resize();
-        }, 100);
-      });
-    }
-  };
-
-  // Listen for fullscreen changes (e.g., ESC key)
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-      // Resize map when fullscreen state changes
-      setTimeout(() => {
-        map.current?.resize();
-      }, 100);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, []);
 
   const addRouteToMap = (route: Route) => {
     if (!map.current) return;
@@ -566,32 +531,32 @@ function RouteSimulatorMapInner({
   }
 
   return (
-    <Card ref={mapContainerWrapper} className="w-full h-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden flex flex-col">
-      <CardHeader className="pb-3 pt-3 flex-shrink-0">
+    <Card className="w-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden">
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-lg font-bold text-foreground">
+            <CardTitle className="text-2xl font-bold text-foreground">
               Route Simulator Map
             </CardTitle>
             {simulationData.metadata?.description && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {simulationData.metadata.description}
               </p>
             )}
           </div>
-          <div className="flex gap-4 text-xs">
+          <div className="flex gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
+              <div className="w-8 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
               <span className="text-muted-foreground">Traditional Route</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-1 bg-emerald-500"></div>
+              <div className="w-8 h-1 bg-emerald-500"></div>
               <span className="text-muted-foreground">AI-Optimized Route</span>
             </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-0 relative flex-1 min-h-0">
+      <CardContent className="p-0 relative">
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
             <div className="text-center">
@@ -600,32 +565,14 @@ function RouteSimulatorMapInner({
             </div>
           </div>
         )}
-        
-        {/* Fullscreen Button - Top Left Corner */}
-        <button
-          onClick={toggleFullscreen}
-          className="absolute top-4 left-4 z-20 bg-card/95 backdrop-blur-sm border border-border hover:bg-accent hover:text-accent-foreground rounded-lg p-2 shadow-lg transition-all duration-200 hover:scale-110"
-          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-        >
-          {isFullscreen ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
-          )}
-        </button>
-        
         <div
           ref={mapContainer}
           className={`map-container ${className}`}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height }}
         />
         
         {selectedRoute && (
-          <div className="absolute top-4 left-16 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg max-w-xs z-10">
+          <div className="absolute top-4 left-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg max-w-xs z-10">
             <h3 className="font-bold text-lg mb-2 text-card-foreground">
               {selectedRoute.name}
             </h3>
@@ -672,6 +619,87 @@ function RouteSimulatorMapInner({
             </div>
           </div>
         )}
+
+        <div className="absolute top-4 right-4 w-80 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg z-10">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-bold text-sm text-card-foreground flex items-center gap-2">
+              🌤️ Route Weather
+            </h3>
+          </div>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {[
+              { name: "Kolkata", lat: 22.57, lon: 88.36, temp: 28, weather: "☀️" },
+              { name: "Vizag", lat: 17.69, lon: 83.22, temp: 30, weather: "🌤️" },
+              { name: "Chennai", lat: 13.08, lon: 80.27, temp: 31, weather: "☁️" },
+              { name: "Paradip", lat: 20.32, lon: 86.62, temp: 29, weather: "⛅" },
+              { name: "Bay Center", lat: 15.0, lon: 85.0, temp: 27, weather: "🌈" },
+            ].map((loc, idx) => (
+              <div
+                key={idx}
+                className="bg-background/60 rounded-md p-2 border border-border hover:border-muted transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-card-foreground font-semibold text-xs truncate">{loc.name}</p>
+                    <p className="text-muted-foreground text-xs">{loc.lat}°, {loc.lon}°</p>
+                  </div>
+                  <div className="text-center flex-shrink-0">
+                    <div className="text-xl">{loc.weather}</div>
+                    <div className="text-card-foreground font-bold text-sm">{loc.temp}°C</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="absolute bottom-4 left-4 right-4 bg-card/95 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg z-10">
+          <h3 className="font-bold text-lg mb-3 text-card-foreground">
+            Route Comparison
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {simulationData.routes.map((route) => (
+              <div
+                key={route.id}
+                className="border-l-4 pl-3"
+                style={{ borderColor: route.color }}
+              >
+                <h4 className="font-semibold text-card-foreground mb-1">
+                  {route.name}
+                </h4>
+                <p className="text-sm text-muted-foreground">
+                  {route.stats.duration} • {route.stats.distance}
+                </p>
+                {route.stats.cost && (
+                  <p className="text-sm text-muted-foreground">
+                    ₹{route.stats.cost.toLocaleString()}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+          {simulationData.routes.length === 2 && (() => {
+            const savings = calculateSavings(simulationData.routes);
+            return (
+            <div className="mt-3 pt-3 border-t border-border">
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Time Saved</p>
+                  <p className="font-semibold text-green-500">{savings.timeSaved}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Distance Saved</p>
+                  <p className="font-semibold text-green-500">{savings.distanceSaved}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Cost Saved</p>
+                  <p className="font-semibold text-green-500">{savings.costSaved}</p>
+                </div>
+              </div>
+            </div>
+            );
+          })()}
+        </div>
       </CardContent>
     </Card>
   );

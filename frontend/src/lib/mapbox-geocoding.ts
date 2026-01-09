@@ -5,6 +5,42 @@
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
+// Hardcoded coordinates for major Indian cities to ensure accuracy
+const INDIAN_CITY_COORDINATES: Record<string, { latitude: number; longitude: number; region: string }> = {
+  "Delhi": { latitude: 28.6139, longitude: 77.2090, region: "Delhi" },
+  "New Delhi": { latitude: 28.6139, longitude: 77.2090, region: "Delhi" },
+  "Mumbai": { latitude: 19.0760, longitude: 72.8777, region: "Maharashtra" },
+  "Bangalore": { latitude: 12.9716, longitude: 77.5946, region: "Karnataka" },
+  "Bengaluru": { latitude: 12.9716, longitude: 77.5946, region: "Karnataka" },
+  "Hyderabad": { latitude: 17.3850, longitude: 78.4867, region: "Telangana" },
+  "Chennai": { latitude: 13.0827, longitude: 80.2707, region: "Tamil Nadu" },
+  "Kolkata": { latitude: 22.5726, longitude: 88.3639, region: "West Bengal" },
+  "Pune": { latitude: 18.5204, longitude: 73.8567, region: "Maharashtra" },
+  "Ahmedabad": { latitude: 23.0225, longitude: 72.5714, region: "Gujarat" },
+  "Jaipur": { latitude: 26.9124, longitude: 75.7873, region: "Rajasthan" },
+  "Surat": { latitude: 21.1702, longitude: 72.8311, region: "Gujarat" },
+  "Lucknow": { latitude: 26.8467, longitude: 80.9462, region: "Uttar Pradesh" },
+  "Kanpur": { latitude: 26.4499, longitude: 80.3319, region: "Uttar Pradesh" },
+  "Nagpur": { latitude: 21.1458, longitude: 79.0882, region: "Maharashtra" },
+  "Indore": { latitude: 22.7196, longitude: 75.8577, region: "Madhya Pradesh" },
+  "Bhopal": { latitude: 23.2599, longitude: 77.4126, region: "Madhya Pradesh" },
+  "Visakhapatnam": { latitude: 17.6869, longitude: 83.2185, region: "Andhra Pradesh" },
+  "Patna": { latitude: 25.5941, longitude: 85.1376, region: "Bihar" },
+  "Vadodara": { latitude: 22.3072, longitude: 73.1812, region: "Gujarat" },
+  "Ghaziabad": { latitude: 28.6692, longitude: 77.4538, region: "Uttar Pradesh" },
+  "Ludhiana": { latitude: 30.9010, longitude: 75.8573, region: "Punjab" },
+  "Agra": { latitude: 27.1767, longitude: 78.0081, region: "Uttar Pradesh" },
+  "Nashik": { latitude: 19.9975, longitude: 73.7898, region: "Maharashtra" },
+  "Varanasi": { latitude: 25.3176, longitude: 82.9739, region: "Uttar Pradesh" },
+  "Gwalior": { latitude: 26.2183, longitude: 78.1828, region: "Madhya Pradesh" },
+  "Ranchi": { latitude: 23.3441, longitude: 85.3096, region: "Jharkhand" },
+  "Jamshedpur": { latitude: 22.8046, longitude: 86.2029, region: "Jharkhand" },
+  "Raipur": { latitude: 21.2514, longitude: 81.6296, region: "Chhattisgarh" },
+  "Kota": { latitude: 25.2138, longitude: 75.8648, region: "Rajasthan" },
+  "Allahabad": { latitude: 25.4358, longitude: 81.8463, region: "Uttar Pradesh" },
+  "Prayagraj": { latitude: 25.4358, longitude: 81.8463, region: "Uttar Pradesh" },
+};
+
 export interface GeocodedLocation {
   city: string;
   coordinates: {
@@ -26,75 +62,206 @@ export interface DetailedRoute {
 /**
  * Geocode a city name to get accurate coordinates using Mapbox Geocoding API
  * Works for cities worldwide with high accuracy
+ * Prioritizes Indian cities to prevent geocoding errors (e.g., Delhi, India vs Delhi, USA)
  */
 export async function geocodeCity(cityName: string): Promise<GeocodedLocation | null> {
+  // First check if this is a known Indian city
+  const normalizedCity = cityName.trim();
+  if (INDIAN_CITY_COORDINATES[normalizedCity]) {
+    const coords = INDIAN_CITY_COORDINATES[normalizedCity];
+    console.log(`Using cached coordinates for ${normalizedCity}, India`);
+    return {
+      city: normalizedCity,
+      coordinates: coords,
+      country: "India",
+      region: coords.region,
+      fullName: `${normalizedCity}, ${coords.region}, India`,
+    };
+  }
+
   if (!MAPBOX_TOKEN) {
-    console.error("❌ Mapbox token not configured");
+    console.error("Mapbox token not configured");
     return null;
   }
 
   try {
-    // First try without country bias for international cities
+    // Use Mapbox Geocoding API with place type filter for cities
+    // Add proximity bias to India (center of India: 20.5937° N, 78.9629° E)
+    // This ensures Indian cities are prioritized in search results
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
       cityName
-    )}.json?types=place,locality&limit=1&access_token=${MAPBOX_TOKEN}`;
+    )}.json?types=place,locality,district&proximity=78.9629,20.5937&country=IN&limit=5&access_token=${MAPBOX_TOKEN}`;
 
-    console.log(`🗺️  Mapbox Geocoding: ${cityName}`);
-    
     const response = await fetch(url);
     if (!response.ok) {
-      console.error(`❌ Mapbox Geocoding failed for ${cityName}: ${response.status} ${response.statusText}`);
       throw new Error(`Geocoding failed: ${response.statusText}`);
     }
 
     const data = await response.json();
 
     if (data.features && data.features.length > 0) {
-      const result = parseGeocodingResult(data.features[0]);
-      console.log(`✅ Geocoded ${cityName}: ${result.fullName} (${result.coordinates.latitude.toFixed(4)}, ${result.coordinates.longitude.toFixed(4)})`);
-      return result;
+      // Prefer Indian results
+      let feature = data.features[0];
+      
+      // Check if first result is in India
+      for (const f of data.features) {
+        const countryContext = f.context?.find((c: any) => c.id.startsWith("country"));
+        if (countryContext && (countryContext.text === "India" || countryContext.short_code === "in")) {
+          feature = f;
+          break;
+        }
+      }
+      
+      const [longitude, latitude] = feature.center;
+
+      // Extract country and region from context
+      let country = "";
+      let region = "";
+
+      if (feature.context) {
+        for (const ctx of feature.context) {
+          if (ctx.id.startsWith("country")) {
+            country = ctx.text;
+          } else if (ctx.id.startsWith("region")) {
+            region = ctx.text;
+          }
+        }
+      }
+
+      console.log(`Geocoded ${cityName} to ${feature.place_name}`);
+
+      return {
+        city: feature.text,
+        coordinates: { latitude, longitude },
+        country,
+        region,
+        fullName: feature.place_name,
+      };
     }
 
-    console.error(`❌ No geocoding results found for ${cityName}`);
     return null;
   } catch (error) {
-    console.error(`❌ Error geocoding ${cityName}:`, error);
+    console.error(`Error geocoding ${cityName}:`, error);
     return null;
   }
 }
 
 /**
- * Parse geocoding result from Mapbox API response
+ * Calculate great circle (straight-line) route between two points
+ * Used as fallback for long-distance ocean routes
  */
-function parseGeocodingResult(feature: any): GeocodedLocation {
-  const [longitude, latitude] = feature.center;
-
-  // Extract country and region from context
-  let country = "";
-  let region = "";
-
-  if (feature.context) {
-    for (const ctx of feature.context) {
-      if (ctx.id.startsWith("country")) {
-        country = ctx.text;
-      } else if (ctx.id.startsWith("region")) {
-        region = ctx.text;
-      }
-    }
+function calculateGreatCircleRoute(
+  origin: { latitude: number; longitude: number },
+  destination: { latitude: number; longitude: number },
+  waypoints?: Array<{ latitude: number; longitude: number }>
+): DetailedRoute {
+  const allPoints = [origin, ...(waypoints || []), destination];
+  
+  // Calculate total distance using Haversine formula
+  let totalDistance = 0;
+  for (let i = 0; i < allPoints.length - 1; i++) {
+    totalDistance += calculateHaversineDistance(allPoints[i], allPoints[i + 1]);
   }
-
+  
+  // Generate intermediate points for a smooth curve (25 points per segment)
+  const coordinates: Array<{ latitude: number; longitude: number }> = [];
+  for (let i = 0; i < allPoints.length - 1; i++) {
+    const segmentPoints = interpolateGreatCircle(allPoints[i], allPoints[i + 1], 25);
+    coordinates.push(...segmentPoints);
+  }
+  
+  // Estimate duration (assuming average vessel speed of 25 km/h for ocean freight)
+  const duration_hours = totalDistance / 25;
+  
   return {
-    city: feature.text,
-    coordinates: { latitude, longitude },
-    country,
-    region,
-    fullName: feature.place_name,
+    coordinates,
+    distance_km: Math.round(totalDistance),
+    duration_hours: parseFloat(duration_hours.toFixed(1)),
+    geometry: {
+      type: "LineString",
+      coordinates: coordinates.map(c => [c.longitude, c.latitude])
+    }
   };
+}
+
+/**
+ * Calculate distance between two points using Haversine formula
+ */
+function calculateHaversineDistance(
+  point1: { latitude: number; longitude: number },
+  point2: { latitude: number; longitude: number }
+): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = toRadians(point2.latitude - point1.latitude);
+  const dLon = toRadians(point2.longitude - point1.longitude);
+  
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(point1.latitude)) * Math.cos(toRadians(point2.latitude)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Interpolate points along a great circle path
+ */
+function interpolateGreatCircle(
+  start: { latitude: number; longitude: number },
+  end: { latitude: number; longitude: number },
+  numPoints: number
+): Array<{ latitude: number; longitude: number }> {
+  const points: Array<{ latitude: number; longitude: number }> = [];
+  
+  for (let i = 0; i <= numPoints; i++) {
+    const fraction = i / numPoints;
+    const lat1 = toRadians(start.latitude);
+    const lon1 = toRadians(start.longitude);
+    const lat2 = toRadians(end.latitude);
+    const lon2 = toRadians(end.longitude);
+    
+    const d = Math.acos(
+      Math.sin(lat1) * Math.sin(lat2) +
+      Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+    );
+    
+    if (d === 0) {
+      points.push({ latitude: start.latitude, longitude: start.longitude });
+      continue;
+    }
+    
+    const A = Math.sin((1 - fraction) * d) / Math.sin(d);
+    const B = Math.sin(fraction * d) / Math.sin(d);
+    
+    const x = A * Math.cos(lat1) * Math.cos(lon1) + B * Math.cos(lat2) * Math.cos(lon2);
+    const y = A * Math.cos(lat1) * Math.sin(lon1) + B * Math.cos(lat2) * Math.sin(lon2);
+    const z = A * Math.sin(lat1) + B * Math.sin(lat2);
+    
+    const lat = Math.atan2(z, Math.sqrt(x * x + y * y));
+    const lon = Math.atan2(y, x);
+    
+    points.push({
+      latitude: toDegrees(lat),
+      longitude: toDegrees(lon)
+    });
+  }
+  
+  return points;
+}
+
+function toRadians(degrees: number): number {
+  return degrees * Math.PI / 180;
+}
+
+function toDegrees(radians: number): number {
+  return radians * 180 / Math.PI;
 }
 
 /**
  * Get detailed route between two points using Mapbox Directions API
  * Returns turn-by-turn accurate route with real road geometry
+ * Falls back to great circle route for long distances (ocean freight)
  */
 export async function getDetailedRoute(
   origin: { latitude: number; longitude: number },
@@ -104,66 +271,36 @@ export async function getDetailedRoute(
 ): Promise<DetailedRoute | null> {
   if (!MAPBOX_TOKEN) {
     console.error("Mapbox token not configured");
-    return null;
+    // Fall back to great circle route
+    return calculateGreatCircleRoute(origin, destination, waypoints);
+  }
+
+  // Calculate distance to determine if we should use Mapbox API or great circle
+  const distance = calculateHaversineDistance(origin, destination);
+  
+  // If distance > 1500km, use great circle (likely ocean/international route)
+  // This allows most Indian routes to use actual road paths
+  if (distance > 1500) {
+    console.log(`Distance ${Math.round(distance)}km exceeds 1500km threshold, using great circle route`);
+    return calculateGreatCircleRoute(origin, destination, waypoints);
   }
 
   try {
-    // Calculate straight-line distance to check if route is too long
-    const distance = calculateHaversineDistance(
-      origin.latitude,
-      origin.longitude,
-      destination.latitude,
-      destination.longitude
-    );
-
-    // For very long routes (>800km), use segmented approach for more detail
-    if (distance > 800) {
-      console.log(`Long distance route (${distance}km), using segmented approach`);
-      return getDetailedRouteWithWaypoints(origin, destination, 400);
-    }
-
-    // Mapbox Directions API has a limit of 25 coordinates total
-    // If too many waypoints, reduce them
-    let filteredWaypoints = waypoints || [];
-    if (filteredWaypoints.length > 23) {
-      // Keep only evenly distributed waypoints
-      const step = Math.ceil(filteredWaypoints.length / 23);
-      filteredWaypoints = filteredWaypoints.filter((_, index) => index % step === 0).slice(0, 23);
-    }
-
     // Build coordinates string: origin;waypoint1;waypoint2;...;destination
-    const allPoints = [origin, ...filteredWaypoints, destination];
+    const allPoints = [origin, ...(waypoints || []), destination];
     const coordsString = allPoints
       .map((p) => `${p.longitude},${p.latitude}`)
       .join(";");
 
     // Use Mapbox Directions API with full geometry
-    // For long routes or specific countries, prefer 'driving' over 'driving-traffic' for better routing
-    // Add exclude=ferry to ensure it routes on land roads only
-    const actualProfile = distance > 1000 ? 'driving' : profile;
-    const url = `https://api.mapbox.com/directions/v5/mapbox/${actualProfile}/${coordsString}?geometries=geojson&overview=full&steps=true&alternatives=false&continue_straight=false&exclude=ferry&access_token=${MAPBOX_TOKEN}`;
+    const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordsString}?geometries=geojson&overview=full&steps=true&access_token=${MAPBOX_TOKEN}`;
 
-    console.log(`Fetching route: ${actualProfile}, points: ${allPoints.length}, distance: ${distance}km`);
-    
     const response = await fetch(url);
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Directions API error (${response.status}):`, errorText);
-      
-      // Check if it's a distance limitation error
-      if (errorText.includes("maximum distance") || errorText.includes("InvalidInput")) {
-        console.log("Route exceeds API limits, using segmented route");
-        return getDetailedRouteWithWaypoints(origin, destination, 400);
-      }
-      
-      // If driving-traffic fails, fallback to regular driving
-      if (profile === "driving-traffic") {
-        console.log("Falling back to regular driving profile");
-        return getDetailedRoute(origin, destination, waypoints, "driving");
-      }
-      
-      // Last resort: create direct route
-      return createDirectRoute(origin, destination, distance);
+      const errorData = await response.json().catch(() => ({ message: response.statusText }));
+      console.warn('Mapbox Directions API Error, falling back to great circle:', errorData);
+      // Fall back to great circle route
+      return calculateGreatCircleRoute(origin, destination, waypoints);
     }
 
     const data = await response.json();
@@ -187,177 +324,12 @@ export async function getDetailedRoute(
       };
     }
 
-    return createDirectRoute(origin, destination, distance);
+    // Fall back to great circle if no routes returned
+    return calculateGreatCircleRoute(origin, destination, waypoints);
   } catch (error) {
-    console.error("Error fetching detailed route:", error);
-    // Fallback to direct route on any error
-    const distance = calculateHaversineDistance(
-      origin.latitude,
-      origin.longitude,
-      destination.latitude,
-      destination.longitude
-    );
-    return createDirectRoute(origin, destination, distance);
-  }
-}
-
-/**
- * Calculate Haversine distance between two coordinates in kilometers
- */
-function calculateHaversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c);
-}
-
-/**
- * Create a curved route with realistic waypoints
- * Used as fallback when API fails or distance is too long
- */
-function createDirectRoute(
-  origin: { latitude: number; longitude: number },
-  destination: { latitude: number; longitude: number },
-  distance: number
-): DetailedRoute {
-  const coordinates: Array<{ latitude: number; longitude: number }> = [];
-  
-  // Calculate the number of points based on distance (more points for longer routes)
-  const numPoints = Math.min(50, Math.max(10, Math.floor(distance / 50)));
-  
-  // Add origin
-  coordinates.push(origin);
-  
-  // Create a more realistic curved path with slight variations
-  // This simulates a road network rather than a straight line
-  for (let i = 1; i < numPoints; i++) {
-    const fraction = i / numPoints;
-    
-    // Base interpolation
-    const baseLat = origin.latitude + (destination.latitude - origin.latitude) * fraction;
-    const baseLng = origin.longitude + (destination.longitude - origin.longitude) * fraction;
-    
-    // Add slight curve to simulate road networks
-    // Use sine wave to create natural-looking curves
-    const curveOffset = Math.sin(fraction * Math.PI) * 0.3; // Maximum 0.3 degree offset
-    const perpLat = -(destination.longitude - origin.longitude) * 0.001 * curveOffset;
-    const perpLng = (destination.latitude - origin.latitude) * 0.001 * curveOffset;
-    
-    coordinates.push({
-      latitude: baseLat + perpLat,
-      longitude: baseLng + perpLng,
-    });
-  }
-  
-  // Add destination
-  coordinates.push(destination);
-
-  // Estimate duration based on distance (average 65 km/h including stops)
-  const duration_hours = parseFloat((distance / 65).toFixed(1));
-
-  return {
-    coordinates,
-    distance_km: distance,
-    duration_hours,
-    geometry: {
-      type: "LineString",
-      coordinates: coordinates.map((c) => [c.longitude, c.latitude]),
-    },
-  };
-}
-
-/**
- * Get route with strategic waypoints for long distances
- * Breaks long routes into segments and fetches each separately
- */
-export async function getDetailedRouteWithWaypoints(
-  origin: { latitude: number; longitude: number },
-  destination: { latitude: number; longitude: number },
-  maxSegmentDistance: number = 500
-): Promise<DetailedRoute | null> {
-  const totalDistance = calculateHaversineDistance(
-    origin.latitude,
-    origin.longitude,
-    destination.latitude,
-    destination.longitude
-  );
-
-  // If route is short enough, use regular API
-  if (totalDistance <= maxSegmentDistance) {
-    return getDetailedRoute(origin, destination, undefined, "driving");
-  }
-
-  try {
-    // Calculate number of segments needed
-    const numSegments = Math.ceil(totalDistance / maxSegmentDistance);
-    const segmentRoutes: DetailedRoute[] = [];
-
-    // Create waypoints along the route
-    for (let i = 0; i < numSegments; i++) {
-      const startFraction = i / numSegments;
-      const endFraction = (i + 1) / numSegments;
-
-      const segmentStart = i === 0 ? origin : {
-        latitude: origin.latitude + (destination.latitude - origin.latitude) * startFraction,
-        longitude: origin.longitude + (destination.longitude - origin.longitude) * startFraction,
-      };
-
-      const segmentEnd = i === numSegments - 1 ? destination : {
-        latitude: origin.latitude + (destination.latitude - origin.latitude) * endFraction,
-        longitude: origin.longitude + (destination.longitude - origin.longitude) * endFraction,
-      };
-
-      const segmentRoute = await getDetailedRoute(segmentStart, segmentEnd, undefined, "driving");
-      
-      if (segmentRoute) {
-        segmentRoutes.push(segmentRoute);
-      }
-    }
-
-    if (segmentRoutes.length === 0) {
-      return createDirectRoute(origin, destination, totalDistance);
-    }
-
-    // Combine all segment routes
-    const allCoordinates: Array<{ latitude: number; longitude: number }> = [];
-    let totalSegmentDistance = 0;
-    let totalSegmentDuration = 0;
-
-    segmentRoutes.forEach((segment, index) => {
-      // Add all coordinates except the last one (to avoid duplicates at segment boundaries)
-      if (index < segmentRoutes.length - 1) {
-        allCoordinates.push(...segment.coordinates.slice(0, -1));
-      } else {
-        allCoordinates.push(...segment.coordinates);
-      }
-      totalSegmentDistance += segment.distance_km;
-      totalSegmentDuration += segment.duration_hours;
-    });
-
-    return {
-      coordinates: allCoordinates,
-      distance_km: totalSegmentDistance,
-      duration_hours: parseFloat(totalSegmentDuration.toFixed(1)),
-      geometry: {
-        type: "LineString",
-        coordinates: allCoordinates.map((c) => [c.longitude, c.latitude]),
-      },
-    };
-  } catch (error) {
-    console.error("Error creating segmented route:", error);
-    return createDirectRoute(origin, destination, totalDistance);
+    console.error("Error fetching detailed route, using great circle:", error);
+    // Fall back to great circle route
+    return calculateGreatCircleRoute(origin, destination, waypoints);
   }
 }
 

@@ -13,7 +13,6 @@ Features Advanced Complexity Analysis:
 """
 
 import os
-import sys
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
@@ -143,7 +142,7 @@ class MultiModalRouter:
     MAJOR_AIRPORTS = {
         # India
         "Mumbai Airport": Location("Chhatrapati Shivaji Int'l", 19.0896, 72.8656, "India", "airport"),
-        "Delhi Airport": Location("Indira Gandhi Int'l", 28.5562, 77.1000, "India", "airport"),
+        "Delhi Airport": Location("Indira Gandhi Int'l", 28.5562, 77.1000, "India", "airport"),  # Airport is slightly different from city center
         "Bangalore Airport": Location("Kempegowda Int'l", 13.1986, 77.7066, "India", "airport"),
         "Chennai Airport": Location("Chennai Int'l", 12.9941, 80.1709, "India", "airport"),
         "Kolkata Airport": Location("Netaji Subhas Chandra Bose Int'l", 22.6547, 88.4467, "India", "airport"),
@@ -194,15 +193,19 @@ class MultiModalRouter:
         """
         Geocode a location using Mapbox API
         Returns None if location cannot be found (NO FALLBACK)
+        Prioritizes Indian locations to prevent geocoding errors
         """
         if not MAPBOX_TOKEN:
             raise ValueError("MAPBOX_TOKEN not configured in environment")
         
+        # Add India bias and country filter for better accuracy
         url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{location_name}.json"
         params = {
             "access_token": MAPBOX_TOKEN,
             "types": "place,locality,region,country",
-            "limit": 1
+            "proximity": "78.9629,20.5937",  # Center of India for proximity bias
+            "country": "IN",  # Prioritize Indian locations
+            "limit": 5  # Get multiple results to find best match
         }
         
         async with aiohttp.ClientSession() as session:
@@ -215,7 +218,14 @@ class MultiModalRouter:
                 if not data.get("features"):
                     raise ValueError(f"Location '{location_name}' could not be found. Please check the spelling or provide a valid city name.")
                 
+                # Prefer Indian results
                 feature = data["features"][0]
+                for f in data["features"]:
+                    for context in f.get("context", []):
+                        if context["id"].startswith("country") and (context["text"] == "India" or context.get("short_code") == "in"):
+                            feature = f
+                            break
+                
                 longitude, latitude = feature["center"]
                 
                 # Extract country
@@ -295,8 +305,6 @@ class MultiModalRouter:
         Returns: (distance_km, duration_hours, coordinates)
         Raises exception if route cannot be calculated
         """
-        print(f"🚛 Fetching road route: {origin.name} ({origin.latitude:.4f}, {origin.longitude:.4f}) → {destination.name} ({destination.latitude:.4f}, {destination.longitude:.4f})", file=sys.stderr, flush=True)
-        
         if not MAPBOX_TOKEN:
             raise ValueError("MAPBOX_TOKEN not configured")
         
@@ -307,86 +315,27 @@ class MultiModalRouter:
             "overview": "full"
         }
         
-        print(f"🌐 Mapbox API URL: {url}", file=sys.stderr, flush=True)
-        
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params) as response:
-                    status = response.status
-                    print(f"📡 Mapbox API response status: {status}", file=sys.stderr, flush=True)
-                    
-                    if status != 200:
-                        error_text = await response.text()
-                        print(f"❌ Mapbox API error response: {error_text}", file=sys.stderr, flush=True)
-                        raise Exception(f"Road routing API failed ({status}) between {origin.name} and {destination.name}: {error_text}")
-                    
-                    data = await response.json()
-                    print(f"📦 Mapbox API response data keys: {list(data.keys())}", file=sys.stderr, flush=True)
-                    
-                    if not data.get("routes") or len(data["routes"]) == 0:
-                        print(f"❌ No routes in response. Data: {data}", file=sys.stderr, flush=True)
-                        raise ValueError(f"No road route found between {origin.name} and {destination.name}. These locations may not be connected by road.")
-                    
-                    route = data["routes"][0]
-                    print(f"📊 Route data keys: {list(route.keys())}", file=sys.stderr, flush=True)
-                    
-                    # Safely extract distance and duration with validation
-                    distance_meters = route.get("distance", 0)
-                    duration_seconds = route.get("duration", 0)
-                    
-                    print(f"📏 Raw values: distance={distance_meters}m, duration={duration_seconds}s", file=sys.stderr, flush=True)
-                    
-                    if distance_meters <= 0:
-                        print(f"❌ Invalid distance in route data: {route}", file=sys.stderr, flush=True)
-                        raise ValueError(f"Invalid route distance ({distance_meters}m) between {origin.name} and {destination.name}. Route data may be corrupted.")
-                    if duration_seconds <= 0:
-                        print(f"❌ Invalid duration in route data: {route}", file=sys.stderr, flush=True)
-                        raise ValueError(f"Invalid route duration ({duration_seconds}s) between {origin.name} and {destination.name}. Route data may be corrupted.")
-                    
-                    # Use try-except around division operations
-                    try:
-                        distance_km = distance_meters / 1000
-                        duration_hours = duration_seconds / 3600
-                    except ZeroDivisionError as zde:
-                        print(f"❌ Division by zero! distance_meters={distance_meters}, duration_seconds={duration_seconds}", file=sys.stderr, flush=True)
-                        raise ValueError(f"Math error calculating route metrics: {zde}")
-                    
-                    print(f"✅ Converted values: distance={distance_km:.2f}km, duration={duration_hours:.2f}h", file=sys.stderr, flush=True)
-                    
-                    # Validate the converted values
-                    if distance_km <= 0:
-                        raise ValueError(f"Invalid route distance ({distance_km}km) between {origin.name} and {destination.name}")
-                    if duration_hours <= 0:
-                        raise ValueError(f"Invalid route duration ({duration_hours}h) between {origin.name} and {destination.name}")
-                    
-                    # Convert coordinates
-                    geometry = route.get("geometry", {})
-                    coords_list = geometry.get("coordinates", [])
-                    
-                    if not coords_list:
-                        raise ValueError(f"No route coordinates returned for route between {origin.name} and {destination.name}")
-                    
-                    coordinates = [
-                        {"latitude": coord[1], "longitude": coord[0]}
-                        for coord in coords_list
-                    ]
-                    
-                    print(f"✅ Road route calculated: {origin.name} → {destination.name}: {distance_km:.1f}km, {duration_hours:.2f}h, {len(coordinates)} coordinates", file=sys.stderr, flush=True)
-                    
-                    return distance_km, duration_hours, coordinates
-        except ZeroDivisionError as zde:
-            print(f"❌ ZERO DIVISION ERROR CAUGHT: {zde}", file=sys.stderr, flush=True)
-            import traceback
-            traceback.print_exc()
-            raise ValueError(f"Division by zero error in route calculation: {zde}")
-        except aiohttp.ClientError as e:
-            print(f"❌ Network error: {str(e)}", file=sys.stderr, flush=True)
-            raise Exception(f"Network error while fetching route between {origin.name} and {destination.name}: {str(e)}")
-        except Exception as e:
-            print(f"❌ Error in get_road_route: {type(e).__name__}: {str(e)}", file=sys.stderr, flush=True)
-            import traceback
-            traceback.print_exc()
-            raise
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as response:
+                if response.status != 200:
+                    raise Exception(f"Road routing failed between {origin.name} and {destination.name}")
+                
+                data = await response.json()
+                
+                if not data.get("routes"):
+                    raise ValueError(f"No road route found between {origin.name} and {destination.name}. These locations may not be connected by road.")
+                
+                route = data["routes"][0]
+                distance_km = route["distance"] / 1000
+                duration_hours = route["duration"] / 3600
+                
+                # Convert coordinates
+                coordinates = [
+                    {"latitude": coord[1], "longitude": coord[0]}
+                    for coord in route["geometry"]["coordinates"]
+                ]
+                
+                return distance_km, duration_hours, coordinates
     
     def calculate_segment_cost(
         self,
@@ -417,10 +366,6 @@ class MultiModalRouter:
         
         # Apply complexity penalties if location data available
         if origin_location and dest_location:
-            # Calculate base duration for the segment
-            speed = self.AVERAGE_SPEEDS.get(mode, 60)  # Default to 60 km/h if mode not found
-            base_duration_hours = distance_km / speed if speed > 0 else 0
-            
             penalties = self.complexity_analyzer.calculate_segment_penalties(
                 origin_lat=origin_location.latitude,
                 origin_lon=origin_location.longitude,
@@ -437,7 +382,7 @@ class MultiModalRouter:
             adjusted_cost, _, explanation = self.complexity_analyzer.apply_penalties_to_segment(
                 base_distance_km=distance_km,
                 base_cost_usd=base_cost,
-                base_duration_hours=base_duration_hours,
+                base_duration_hours=0,  # We'll calculate duration separately
                 penalties=penalties
             )
             
@@ -461,16 +406,8 @@ class MultiModalRouter:
         Returns:
             (adjusted_duration_hours, explanation)
         """
-        # Validate inputs
-        if distance_km <= 0:
-            raise ValueError(f"Invalid distance: {distance_km}km. Distance must be positive.")
-        
-        speed = self.AVERAGE_SPEEDS.get(mode)
-        if not speed or speed <= 0:
-            raise ValueError(f"Invalid speed for mode {mode}: {speed}km/h")
-        
         # Base travel time
-        travel_time = distance_km / speed
+        travel_time = distance_km / self.AVERAGE_SPEEDS[mode]
         
         # Add loading/unloading time
         if include_loading:
@@ -550,40 +487,76 @@ class MultiModalRouter:
         # Step 4: Route planning logic
         if not is_international:
             # === DOMESTIC ROUTING ===
-            # For now, allow all domestic truck routes regardless of distance
-            # In production, routes > 1500km could use rail, but we'll use truck for simplicity
-            try:
-                distance_km, duration_hours, coordinates = await self.get_road_route(origin, destination)
-                
-                # Apply complexity analysis
-                adj_cost, cost_explanation = self.calculate_segment_cost(
-                    distance_km, TransportMode.TRUCK, cargo_weight_tons,
-                    origin, destination
-                )
-                adj_duration, duration_explanation = self.calculate_segment_duration(
-                    distance_km, TransportMode.TRUCK,
-                    origin, destination, cargo_weight_tons=cargo_weight_tons
-                )
-                
-                route_description = f"Direct truck transport from {origin.name} to {destination.name}. {cost_explanation}"
-                if direct_distance > self.DISTANCE_THRESHOLDS["domestic_truck_max"]:
-                    route_description += f" Note: Long distance route ({direct_distance:.0f}km) - rail transport recommended for cost optimization."
-                
-                segment = RouteSegment(
-                    segment_type=SegmentType.DIRECT,
-                    transport_mode=TransportMode.TRUCK,
-                    origin=origin,
-                    destination=destination,
-                    distance_km=distance_km,
-                    duration_hours=adj_duration,
-                    cost_usd=adj_cost,
-                    coordinates=coordinates,
-                    description=route_description
-                )
-                segments.append(segment)
-                
-            except Exception as e:
-                raise Exception(f"Failed to calculate road route: {str(e)}. Cannot proceed without valid routing data.")
+            if direct_distance < self.DISTANCE_THRESHOLDS["domestic_truck_max"]:
+                # Direct truck route
+                try:
+                    distance_km, duration_hours, coordinates = await self.get_road_route(origin, destination)
+                    
+                    # Apply complexity analysis
+                    adj_cost, cost_explanation = self.calculate_segment_cost(
+                        distance_km, TransportMode.TRUCK, cargo_weight_tons,
+                        origin, destination
+                    )
+                    adj_duration, duration_explanation = self.calculate_segment_duration(
+                        distance_km, TransportMode.TRUCK,
+                        origin, destination, cargo_weight_tons=cargo_weight_tons
+                    )
+                    
+                    segment = RouteSegment(
+                        segment_type=SegmentType.DIRECT,
+                        transport_mode=TransportMode.TRUCK,
+                        origin=origin,
+                        destination=destination,
+                        distance_km=distance_km,
+                        duration_hours=adj_duration,
+                        cost_usd=adj_cost,
+                        coordinates=coordinates,
+                        description=f"Direct truck transport from {origin.name} to {destination.name}. {cost_explanation}"
+                    )
+                    segments.append(segment)
+                    
+                except Exception as e:
+                    raise Exception(f"Failed to calculate road route: {str(e)}. Cannot proceed without valid routing data.")
+            
+            else:
+                # Long domestic route (>1500km) - Use truck transport with increased costs
+                # In production, this would use rail network, but for now we use long-haul trucking
+                try:
+                    distance, duration, coordinates = await self.get_road_route(origin, destination)
+                    
+                    # Long-haul trucking has higher cost multiplier
+                    long_haul_multiplier = 1.3  # 30% premium for long-distance trucking
+                    base_cost = distance * self.COST_PER_KM_TON[TransportMode.TRUCK] * cargo_weight_tons * long_haul_multiplier
+                    
+                    # Apply fixed costs
+                    base_cost += 500  # Fixed truck costs
+                    
+                    # Add time multiplier for long distances (rest stops, driver changes)
+                    long_distance_time_multiplier = 1.2
+                    adj_duration = duration * long_distance_time_multiplier
+                    adj_cost = base_cost
+                    
+                    cost_explanation = (
+                        f"Long-haul truck route ({distance:.0f}km). "
+                        f"Premium applied for distance. "
+                        f"Note: Rail transport would be more cost-effective for this distance."
+                    )
+                    
+                    segment = RouteSegment(
+                        segment_type=SegmentType.DIRECT,
+                        transport_mode=TransportMode.TRUCK,
+                        origin=origin,
+                        destination=destination,
+                        distance_km=distance,
+                        duration_hours=adj_duration,
+                        cost_usd=adj_cost,
+                        coordinates=coordinates,
+                        description=f"Long-haul truck transport from {origin.name} to {destination.name}. {cost_explanation}"
+                    )
+                    segments.append(segment)
+                    
+                except Exception as e:
+                    raise Exception(f"Failed to calculate long-haul road route: {str(e)}. Cannot proceed without valid routing data.")
         
         else:
             # === INTERNATIONAL ROUTING ===
