@@ -10,6 +10,8 @@ import {
   generateCurveForMode, 
   getTransportModeStyle
 } from "@/lib/route-curves";
+import { Maximize2, Minimize2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
@@ -87,10 +89,12 @@ function RouteSimulatorMapInner({
   className = "",
 }: RouteSimulatorMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
+  const mapContainerWrapper = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [weatherAlongRoute, setWeatherAlongRoute] = useState<
     {
       latitude: number;
@@ -506,6 +510,38 @@ function RouteSimulatorMapInner({
     fetchWeatherForRoute(selectedRoute);
   }, [selectedRoute]);
 
+  const toggleFullscreen = () => {
+    if (!mapContainerWrapper.current) return;
+
+    if (!isFullscreen) {
+      // Enter fullscreen
+      if (mapContainerWrapper.current.requestFullscreen) {
+        mapContainerWrapper.current.requestFullscreen();
+      }
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      // Resize map when entering/exiting fullscreen
+      setTimeout(() => {
+        map.current?.resize();
+        fitMapToRoutes();
+      }, 100);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [fitMapToRoutes]);
+
   if (error) {
     return (
       <Card className="w-full bg-card/95 backdrop-blur-sm border border-border/40">
@@ -531,7 +567,7 @@ function RouteSimulatorMapInner({
   }
 
   return (
-    <Card className="w-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden">
+    <Card ref={mapContainerWrapper} className={`w-full bg-card/95 backdrop-blur-sm border border-border/40 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''}`}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div>
@@ -544,10 +580,11 @@ function RouteSimulatorMapInner({
               </p>
             )}
           </div>
-          <div className="flex gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
-              <span className="text-muted-foreground">Traditional Route</span>
+          <div className="flex items-center gap-4">
+            <div className="flex gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
+                <span className="text-muted-foreground">Traditional Route</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-1 bg-emerald-500"></div>
@@ -568,7 +605,7 @@ function RouteSimulatorMapInner({
         <div
           ref={mapContainer}
           className={`map-container ${className}`}
-          style={{ height }}
+          style={{ height: isFullscreen ? 'calc(100vh - 120px)' : height }}
         />
         
         {selectedRoute && (
