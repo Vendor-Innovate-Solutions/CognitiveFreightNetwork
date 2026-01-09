@@ -243,8 +243,10 @@ const createSimulationData = (
   // Use geocoded coordinates if available, otherwise fallback
   const fallbackCoords: Record<string, { lat: number; lng: number }> = {
     "Mumbai": { lat: 19.0760, lng: 72.8777 },
-    "Delhi": { lat: 28.7041, lng: 77.1025 },
+    "Delhi": { lat: 28.6139, lng: 77.2090 }, // Fixed: Delhi, India (not USA)
+    "New Delhi": { lat: 28.6139, lng: 77.2090 },
     "Bangalore": { lat: 12.9716, lng: 77.5946 },
+    "Bengaluru": { lat: 12.9716, lng: 77.5946 },
     "Chennai": { lat: 13.0827, lng: 80.2707 },
     "Kolkata": { lat: 22.5726, lng: 88.3639 },
     "Hyderabad": { lat: 17.3850, lng: 78.4867 },
@@ -255,7 +257,7 @@ const createSimulationData = (
   };
 
   const originCoords = geocodedCities?.get(shipment.origin_city) || fallbackCoords[shipment.origin_city] || { lat: 19.0760, lng: 72.8777 };
-  const destCoords = geocodedCities?.get(shipment.destination_city) || fallbackCoords[shipment.destination_city] || { lat: 28.7041, lng: 77.1025 };
+  const destCoords = geocodedCities?.get(shipment.destination_city) || fallbackCoords[shipment.destination_city] || { lat: 28.6139, lng: 77.2090 }; // Fixed: Delhi, India
 
   // Get the optimized route cities
   const routeCities = getRouteCities(shipment.origin_city, shipment.destination_city);
@@ -424,36 +426,58 @@ export default function DashboardPage() {
   const fetchDetailedRoutesForShipment = async (shipment: Shipment) => {
     setRoutesLoading(true);
     try {
-      // Geocode origin and destination
-      const [originGeo, destGeo] = await Promise.all([
-        geocodeCity(shipment.origin_city),
-        geocodeCity(shipment.destination_city)
-      ]);
+      // Get route cities for waypoints
+      const routeCities = getRouteCities(shipment.origin_city, shipment.destination_city);
+      
+      // Geocode origin, destination, and waypoints (excluding first and last)
+      const citiesToGeocode = [
+        shipment.origin_city,
+        ...routeCities.slice(1, -1), // Intermediate cities as waypoints
+        shipment.destination_city
+      ];
+      
+      const geocodedResults = await geocodeCities(citiesToGeocode);
+      
+      const originGeo = geocodedResults.get(shipment.origin_city);
+      const destGeo = geocodedResults.get(shipment.destination_city);
 
       if (originGeo && destGeo) {
         // Update geocoded cities map
         const newGeocodedCities = new Map(geocodedCities);
-        newGeocodedCities.set(shipment.origin_city, { lat: originGeo.coordinates.latitude, lng: originGeo.coordinates.longitude });
-        newGeocodedCities.set(shipment.destination_city, { lat: destGeo.coordinates.latitude, lng: destGeo.coordinates.longitude });
+        geocodedResults.forEach((geo, city) => {
+          newGeocodedCities.set(city, { lat: geo.coordinates.latitude, lng: geo.coordinates.longitude });
+        });
         setGeocodedCities(newGeocodedCities);
 
-        // Fetch detailed routes from Mapbox Directions API
+        // Build waypoints from intermediate cities
+        const waypoints: Array<{ latitude: number; longitude: number }> = [];
+        for (let i = 1; i < routeCities.length - 1; i++) {
+          const waypointGeo = geocodedResults.get(routeCities[i]);
+          if (waypointGeo) {
+            waypoints.push(waypointGeo.coordinates);
+          }
+        }
+
+        console.log(`Fetching detailed routes with ${waypoints.length} waypoints:`, routeCities.join(' → '));
+
+        // Fetch detailed routes from Mapbox Directions API with waypoints
         const [traditionalRoute, optimizedRoute] = await Promise.all([
           getDetailedRoute(
             originGeo.coordinates,
             destGeo.coordinates,
-            undefined,
+            waypoints.length > 0 ? waypoints : undefined,
             "driving"
           ),
           getDetailedRoute(
             originGeo.coordinates,
             destGeo.coordinates,
-            undefined,
+            waypoints.length > 0 ? waypoints.slice(0, 3) : undefined, // Limit optimized route waypoints
             "driving-traffic"
           )
         ]);
 
         if (traditionalRoute && optimizedRoute) {
+          console.log(`Routes fetched successfully - Traditional: ${traditionalRoute.distance_km}km, Optimized: ${optimizedRoute.distance_km}km`);
           setDetailedRoutes({
             traditional: traditionalRoute,
             optimized: optimizedRoute

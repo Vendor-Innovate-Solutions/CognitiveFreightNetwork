@@ -184,7 +184,8 @@ class GoogleMapsService:
         
         cities = {
             "mumbai": (19.0760, 72.8777),
-            "delhi": (28.7041, 77.1025),
+            "delhi": (28.6139, 77.2090),  # Fixed: Delhi, India (not USA)
+            "new delhi": (28.6139, 77.2090),
             "bangalore": (12.9716, 77.5946),
             "chennai": (13.0827, 80.2707),
             "kolkata": (22.5726, 88.3639),

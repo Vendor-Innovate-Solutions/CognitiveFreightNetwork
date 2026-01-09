@@ -444,17 +444,21 @@ class RouteComplexityAnalyzer:
         Returns:
             (adjusted_cost, adjusted_duration, explanation)
         """
+        # Ensure we have valid base values
+        adjusted_cost = max(base_cost_usd, 0.01)  # Avoid division by zero
+        adjusted_duration = max(base_duration_hours, 0.01)  # Avoid division by zero
+        
         # Cost adjustments
-        adjusted_cost = base_cost_usd
-        adjusted_cost *= (2.0 - penalties.terrain_multiplier)  # Terrain increases cost (inverse of speed mult)
-        adjusted_cost *= penalties.seasonal_multiplier  # Weather increases cost
+        terrain_mult = max(penalties.terrain_multiplier, 0.1)  # Prevent division by zero
+        adjusted_cost *= (2.0 - terrain_mult)  # Terrain increases cost (inverse of speed mult)
+        adjusted_cost *= max(penalties.seasonal_multiplier, 0.1)  # Weather increases cost
         
         # Duration adjustments
-        adjusted_duration = base_duration_hours
-        adjusted_duration /= penalties.terrain_multiplier  # Slower speed = more time
-        adjusted_duration /= penalties.congestion_multiplier  # Congestion slows down
-        adjusted_duration *= penalties.distance_complexity_factor  # Long routes less efficient
-        adjusted_duration *= penalties.seasonal_multiplier  # Weather slows down
+        congestion_mult = max(penalties.congestion_multiplier, 0.1)  # Prevent division by zero
+        adjusted_duration /= terrain_mult  # Slower speed = more time
+        adjusted_duration /= congestion_mult  # Congestion slows down
+        adjusted_duration *= max(penalties.distance_complexity_factor, 0.1)  # Long routes less efficient
+        adjusted_duration *= max(penalties.seasonal_multiplier, 0.1)  # Weather slows down
         adjusted_duration += penalties.border_delay_hours  # Add border crossing time
         adjusted_duration += penalties.port_dwell_hours  # Add port waiting time
         
@@ -482,8 +486,16 @@ class RouteComplexityAnalyzer:
         if not explanation_parts:
             explanation = "Ideal conditions - No penalties applied"
         else:
-            cost_increase = ((adjusted_cost / base_cost_usd) - 1) * 100
-            time_increase = ((adjusted_duration / base_duration_hours) - 1) * 100
+            # Safe division for percentage calculations
+            if base_cost_usd > 0:
+                cost_increase = ((adjusted_cost / base_cost_usd) - 1) * 100
+            else:
+                cost_increase = 0
+            
+            if base_duration_hours > 0:
+                time_increase = ((adjusted_duration / base_duration_hours) - 1) * 100
+            else:
+                time_increase = 0
             
             explanation = f"Adjusted: +{cost_increase:.0f}% cost, +{time_increase:.0f}% time. " + "; ".join(explanation_parts)
         

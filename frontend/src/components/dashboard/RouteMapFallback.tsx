@@ -30,6 +30,46 @@ const getSeverityColor = (severity?: string): string => {
   return severity ? colors[severity] : "text-blue-500";
 };
 
+// Helper to parse duration string like "8h" or "27h" to hours
+const parseDuration = (duration: string): number => {
+  const match = duration.match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : 0;
+};
+
+// Helper to parse distance string like "377km" or "1363km" to km
+const parseDistance = (distance: string): number => {
+  const match = distance.match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : 0;
+};
+
+// Calculate savings between two routes
+const calculateSavings = (routes: { stats: { duration: string; distance: string; cost?: number }; type: string }[]): { timeSaved: string; distanceSaved: string; costSaved: string } => {
+  if (routes.length < 2) {
+    return { timeSaved: "0 hours", distanceSaved: "0 km", costSaved: "₹0" };
+  }
+  
+  const traditionalRoute = routes.find(r => r.type === "actual") || routes[0];
+  const optimizedRoute = routes.find(r => r.type === "optimized") || routes[1];
+  
+  const traditionalTime = parseDuration(traditionalRoute.stats.duration);
+  const optimizedTime = parseDuration(optimizedRoute.stats.duration);
+  const timeSaved = Math.max(0, traditionalTime - optimizedTime);
+  
+  const traditionalDist = parseDistance(traditionalRoute.stats.distance);
+  const optimizedDist = parseDistance(optimizedRoute.stats.distance);
+  const distanceSaved = Math.max(0, traditionalDist - optimizedDist);
+  
+  const traditionalCost = traditionalRoute.stats.cost || 0;
+  const optimizedCost = optimizedRoute.stats.cost || 0;
+  const costSaved = Math.max(0, traditionalCost - optimizedCost);
+  
+  return {
+    timeSaved: `${timeSaved.toFixed(0)} hours`,
+    distanceSaved: `${distanceSaved.toFixed(0)} km`,
+    costSaved: `₹${costSaved.toLocaleString()}`
+  };
+};
+
 export default function RouteMapFallback({
   simulationData,
   height = "600px",
@@ -148,24 +188,27 @@ export default function RouteMapFallback({
                   </div>
                 ))}
               </div>
-              {simulationData.routes.length === 2 && (
+              {simulationData.routes.length === 2 && (() => {
+                const savings = calculateSavings(simulationData.routes);
+                return (
                 <div className="pt-3 border-t border-border">
                   <div className="grid grid-cols-3 gap-2 text-sm">
                     <div>
                       <p className="text-muted-foreground">Time Saved</p>
-                      <p className="font-semibold text-green-500">12 hours</p>
+                      <p className="font-semibold text-green-500">{savings.timeSaved}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Distance Saved</p>
-                      <p className="font-semibold text-green-500">300 km</p>
+                      <p className="font-semibold text-green-500">{savings.distanceSaved}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Cost Saved</p>
-                      <p className="font-semibold text-green-500">$600</p>
+                      <p className="font-semibold text-green-500">{savings.costSaved}</p>
                     </div>
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>

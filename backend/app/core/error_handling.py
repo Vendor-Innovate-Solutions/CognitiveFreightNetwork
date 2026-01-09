@@ -112,13 +112,21 @@ class ErrorHandler:
         
         error_details = ErrorHandler.log_error(error, correlation_id, request)
         
+        # Ensure all values in error_details are JSON serializable
+        serializable_details = None
+        if include_details and error_details:
+            serializable_details = {
+                k: str(v) if not isinstance(v, (str, int, float, bool, type(None), dict, list)) else v
+                for k, v in error_details.items()
+            }
+        
         response_data = ErrorResponse(
             error=type(error).__name__,
             message=str(error),
             correlation_id=correlation_id,
             timestamp=datetime.utcnow().isoformat(),
             path=str(request.url) if request else None,
-            details=error_details if include_details else None
+            details=serializable_details
         )
         
         return JSONResponse(
@@ -189,18 +197,36 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         extra={'correlation_id': correlation_id}
     )
     
+    # Serialize validation errors to ensure they're JSON serializable
+    def serialize_error(error_dict):
+        """Recursively serialize error dictionaries"""
+        serialized = {}
+        for key, value in error_dict.items():
+            if isinstance(value, dict):
+                serialized[key] = serialize_error(value)
+            elif isinstance(value, list):
+                serialized[key] = [serialize_error(item) if isinstance(item, dict) else str(item) for item in value]
+            elif isinstance(value, (str, int, float, bool, type(None))):
+                serialized[key] = value
+            else:
+                # Convert any other type to string
+                serialized[key] = str(value)
+        return serialized
+    
+    validation_errors = [serialize_error(error) for error in exc.errors()]
+    
     error_response = ErrorResponse(
         error="ValidationError",
         message="Request validation failed",
         correlation_id=correlation_id,
         timestamp=datetime.utcnow().isoformat(),
         path=str(request.url),
-        details={"validation_errors": exc.errors()}
+        details={"validation_errors": validation_errors}
     )
     
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=error_response.dict(),
+        content=error_response.dict(exclude_none=True),
         headers={"X-Correlation-ID": correlation_id}
     )
 
