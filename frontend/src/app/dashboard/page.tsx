@@ -12,6 +12,8 @@ import { SimulationData, Route, RouteEvent } from "@/types/route";
 import { planMultiModalRoute, type MultiModalRoute, type RouteError } from "@/lib/multi-modal-api";
 import MultiModalRouteCard from "@/components/dashboard/MultiModalRouteCard";
 
+const CFN_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+
 // Route distance response from backend
 interface RouteDistanceData {
   direct_distance_km: number;
@@ -196,7 +198,7 @@ const getRouteCities = (originCity: string, destinationCity: string): string[] =
 // Function to fetch real distances from Google Maps API
 const fetchRouteDistances = async (origin: string, destination: string, routeCities: string[]): Promise<RouteDistanceData | null> => {
   try {
-    const response = await fetch('http://localhost:8000/route-distances', {
+    const response = await fetch(`${CFN_API_BASE_URL}/route-distances`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -382,7 +384,7 @@ const createSimulationData = (
 };
 
 export default function DashboardPage() {
-  const { company, token, logout } = useAuth();
+  const { token } = useAuth();
   const router = useRouter();
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -401,13 +403,8 @@ export default function DashboardPage() {
   const [multiModalError, setMultiModalError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!company) {
-      router.push('/login');
-      return;
-    }
-
     loadDashboardData();
-  }, [company, token, router]);
+  }, [token]);
 
   // Fetch route distances when selectedShipment changes
   useEffect(() => {
@@ -562,41 +559,31 @@ export default function DashboardPage() {
     }
   };
 
-  const handleShipmentSelect = (shipment: Shipment) => {
-    setSelectedShipment(shipment);
-  };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 p-4">
         <div className="flex items-center justify-center h-64">
-          <div className="text-xl text-gray-600">Loading dashboard...</div>
+          <div className="text-xl text-blue-900">Loading dashboard...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-blue-100 to-slate-100">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-6 shadow-sm">
+      <div className="bg-[#1f2f4a] border-b border-[#2f4468] px-6 py-6 shadow-md">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">CFN Dashboard</h1>
-            <p className="text-gray-700 font-medium">Welcome back, {company?.name || 'User'}</p>
+            <h1 className="text-3xl font-bold text-white mb-2">CFN Dashboard</h1>
+            <p className="text-blue-100 font-medium">Integrated ERP workspace</p>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center">
             <button
               onClick={() => router.push('/plan-shipment')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+              className="bg-[#2f6fe4] text-white px-6 py-3 rounded-lg hover:bg-[#245fcd] transition-colors font-medium shadow-sm"
             >
               Plan New Shipment
-            </button>
-            <button
-              onClick={logout}
-              className="text-gray-600 hover:text-gray-800 transition-colors font-medium px-4 py-2"
-            >
-              Logout
             </button>
           </div>
         </div>
@@ -775,18 +762,18 @@ export default function DashboardPage() {
                   <div className="space-y-3">
                     <div className="flex flex-col">
                       <span className="text-blue-700 font-semibold text-sm mb-1">Status</span>
-                      <span className="text-blue-900 font-bold text-base">{selectedShipment.status.replace('_', ' ')}</span>
+                      <span className="text-blue-50 font-bold text-base">{selectedShipment.status.replace('_', ' ')}</span>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div className="flex flex-col">
                       <span className="text-blue-700 font-semibold text-sm mb-1">Weight</span>
-                      <span className="text-blue-900 font-bold text-base">{selectedShipment.cargo_weight_tons}t</span>
+                      <span className="text-blue-50 font-bold text-base">{selectedShipment.cargo_weight_tons}t</span>
                     </div>
                   </div>
                   <div className="flex flex-col">
                     <span className="text-blue-700 font-semibold text-sm mb-1">Distance</span>
-                    <span className="text-blue-900 font-bold text-base">
+                    <span className="text-blue-50 font-bold text-base">
                       {multiModalLoading ? (
                         <span className="animate-pulse">Calculating...</span>
                       ) : multiModalRoute ? (
@@ -800,7 +787,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-blue-700 font-semibold text-sm mb-1">Cost</span>
-                    <span className="text-blue-900 font-bold text-base">
+                    <span className="text-blue-50 font-bold text-base">
                       {multiModalRoute ? (
                         `₹${Math.round(multiModalRoute.total_cost_usd * 83).toLocaleString()}`
                       ) : (
@@ -828,16 +815,16 @@ export default function DashboardPage() {
 
                 {/* Route Summary Card */}
                 {multiModalRoute && (
-                  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-300 shadow-sm">
+                  <Card className="bg-[#10284a] border border-[#2f4468] shadow-md">
                     <div className="p-3">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xl">📊</span>
-                        <h4 className="font-bold text-blue-900 text-base">Route Summary</h4>
+                        <h4 className="font-bold text-blue-50 text-base">Route Summary</h4>
                       </div>
                       <div className="space-y-2">
-                        <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200">
-                          <p className="text-xs text-blue-700 font-medium mb-1">Transport Modes:</p>
-                          <p className="text-blue-900 font-semibold text-sm">
+                        <div className="bg-[#1a355d] backdrop-blur-sm rounded-lg p-2 border border-[#3a5680]">
+                          <p className="text-xs text-blue-200 font-medium mb-1">Transport Modes:</p>
+                          <p className="text-blue-50 font-semibold text-sm">
                             {multiModalRoute.transport_modes_used.map(mode => 
                               mode === 'truck' ? '🚛 Truck' :
                               mode === 'ship' ? '🚢 Ship' :
@@ -846,27 +833,27 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
-                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200 text-center">
-                            <p className="text-xs text-blue-700 font-medium">Duration</p>
-                            <p className="text-blue-900 font-bold text-base">
+                          <div className="bg-[#1a355d] backdrop-blur-sm rounded-lg p-2 border border-[#3a5680] text-center">
+                            <p className="text-xs text-blue-200 font-medium">Duration</p>
+                            <p className="text-blue-50 font-bold text-base">
                               {Math.round(multiModalRoute.total_duration_hours)}h
                             </p>
                           </div>
-                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200 text-center">
-                            <p className="text-xs text-blue-700 font-medium">Distance</p>
-                            <p className="text-blue-900 font-bold text-base">
+                          <div className="bg-[#1a355d] backdrop-blur-sm rounded-lg p-2 border border-[#3a5680] text-center">
+                            <p className="text-xs text-blue-200 font-medium">Distance</p>
+                            <p className="text-blue-50 font-bold text-base">
                               {Math.round(multiModalRoute.total_distance_km)}km
                             </p>
                           </div>
-                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-2 border border-blue-200 text-center">
-                            <p className="text-xs text-blue-700 font-medium">Total Cost</p>
-                            <p className="text-blue-900 font-bold text-base">
+                          <div className="bg-[#1a355d] backdrop-blur-sm rounded-lg p-2 border border-[#3a5680] text-center">
+                            <p className="text-xs text-blue-200 font-medium">Total Cost</p>
+                            <p className="text-blue-50 font-bold text-base">
                               ₹{Math.round(multiModalRoute.total_cost_usd * 83).toLocaleString()}
                             </p>
                           </div>
                         </div>
-                        <div className="bg-blue-100/80 backdrop-blur-sm rounded-lg p-2 border border-blue-300">
-                          <p className="text-xs text-blue-900 font-medium">
+                        <div className="bg-[#203f6f] backdrop-blur-sm rounded-lg p-2 border border-[#4f78ad]">
+                          <p className="text-xs text-blue-100 font-medium">
                             {multiModalRoute.is_international ? '🌍 International route with optimal port/airport selection' : '🏠 Domestic route optimized for efficiency'}
                           </p>
                         </div>
@@ -897,3 +884,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

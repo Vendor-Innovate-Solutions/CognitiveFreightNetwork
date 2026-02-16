@@ -585,10 +585,11 @@ function RouteSimulatorMapInner({
               <div className="flex items-center gap-2">
                 <div className="w-8 h-1 bg-orange-500 border-2 border-dashed border-orange-500"></div>
                 <span className="text-muted-foreground">Traditional Route</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-1 bg-emerald-500"></div>
-              <span className="text-muted-foreground">AI-Optimized Route</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-1 bg-emerald-500"></div>
+                <span className="text-muted-foreground">AI-Optimized Route</span>
+              </div>
             </div>
           </div>
         </div>

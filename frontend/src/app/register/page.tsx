@@ -207,9 +207,9 @@ export default function RegisterPage() {
 
         <div className="mt-6 text-center">
           <p className="text-blue-800">
-            Already have an account?{' '}
-            <Link href="/login" className="text-blue-600 hover:text-blue-800 font-bold underline">
-              Sign in here
+            Back to CFN workspace?{' '}
+            <Link href="/dashboard" className="text-blue-600 hover:text-blue-800 font-bold underline">
+              Open dashboard
             </Link>
           </p>
         </div>

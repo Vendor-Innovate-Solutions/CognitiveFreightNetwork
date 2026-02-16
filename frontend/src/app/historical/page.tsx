@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { apiClient, type HistoricalShipment } from '@/lib/cfn-api';
 
 export default function HistoricalDataPage() {
-  const { company, token } = useAuth();
+  const { token } = useAuth();
   const router = useRouter();
   
   const [formData, setFormData] = useState<HistoricalShipment>({
@@ -98,11 +98,6 @@ export default function HistoricalDataPage() {
       setIsLoading(false);
     }
   };
-
-  if (!company) {
-    router.push('/login');
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-green-50">
@@ -501,3 +496,4 @@ export default function HistoricalDataPage() {
     </div>
   );
 }
+

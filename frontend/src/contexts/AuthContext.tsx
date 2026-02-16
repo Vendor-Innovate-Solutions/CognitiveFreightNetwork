@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
   // Load token from localStorage on mount
   useEffect(() => {
@@ -168,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCompany(null);
     localStorage.removeItem('token');
     localStorage.removeItem('company');
-    router.push('/login');
+    router.push('/dashboard');
   };
 
   return (

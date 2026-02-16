@@ -18,8 +18,13 @@ if not USE_MONGODB:
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 30  # 30 days
+WORKSPACE_EMAIL = os.getenv("CFN_WORKSPACE_EMAIL", "cfn-workspace@cfnworkspace.com")
+WORKSPACE_NAME = os.getenv("CFN_WORKSPACE_NAME", "cfn-workspace-local")
+WORKSPACE_PASSWORD = os.getenv("CFN_WORKSPACE_PASSWORD", "cfn-workspace")
+WORKSPACE_COMPANY_TYPE = os.getenv("CFN_WORKSPACE_COMPANY_TYPE", "Shipper")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+# auto_error=False allows endpoints to work without auth tokens
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 class AuthService:
@@ -146,41 +151,50 @@ class AuthService:
 
 
 async def get_current_company(
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
-    """Get current authenticated company from token"""
-    
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
+    """Get current company from token, or fall back to workspace company."""
+    def get_or_create_workspace_company():
+        workspace_company = AuthService.get_company_by_email(db, WORKSPACE_EMAIL)
+        if workspace_company:
+            return workspace_company
+
+        try:
+            return AuthService.create_company(
+                db=db,
+                name=WORKSPACE_NAME,
+                email=WORKSPACE_EMAIL,
+                password=WORKSPACE_PASSWORD,
+                company_type=WORKSPACE_COMPANY_TYPE
+            )
+        except Exception:
+            # Handle race conditions where another request created it first
+            workspace_company = AuthService.get_company_by_email(db, WORKSPACE_EMAIL)
+            if workspace_company:
+                return workspace_company
+            raise
+
+    # No token provided: run in shared workspace mode
+    if not token:
+        return get_or_create_workspace_company()
+
     try:
         payload = AuthService.decode_token(token)
         email: str = payload.get("sub")
-        
         if email is None:
-            raise credentials_exception
-    
-    except JWTError:
-        raise credentials_exception
+            return get_or_create_workspace_company()
+    except Exception:
+        return get_or_create_workspace_company()
     
     company = AuthService.get_company_by_email(db, email=email)
-    
     if company is None:
-        raise credentials_exception
-    
-    # Handle both MongoDB dict and SQLAlchemy object
+        return get_or_create_workspace_company()
+
     is_active = company.get("is_active", True) if isinstance(company, dict) else company.is_active
-    
     if not is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Company account is inactive"
-        )
-    
+        return get_or_create_workspace_company()
+
     return company
 
 

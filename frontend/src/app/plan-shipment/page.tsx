@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { apiClient, type RouteOption, type ShipmentPlanRequest } from '@/lib/cfn-api';
 
 export default function PlanShipmentPage() {
-  const { company, token } = useAuth();
+  const { token } = useAuth();
   const router = useRouter();
   
   const [formData, setFormData] = useState<ShipmentPlanRequest>({
@@ -30,13 +30,6 @@ export default function PlanShipmentPage() {
   const [routes, setRoutes] = useState<RouteOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Handle authentication redirect
-  useEffect(() => {
-    if (!company) {
-      router.push('/login');
-    }
-  }, [company, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -70,17 +63,6 @@ export default function PlanShipmentPage() {
       setIsLoading(false);
     }
   };
-
-  // Show loading state while checking authentication
-  if (!company) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-xl font-semibold text-slate-700">🔄 Checking authentication...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -450,3 +432,5 @@ export default function PlanShipmentPage() {
     </div>
   );
 }
+
+

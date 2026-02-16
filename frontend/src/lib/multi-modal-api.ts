@@ -3,7 +3,7 @@
  * NO FALLBACKS - Returns errors for display in UI
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
 
 export interface Location {
   name: string;

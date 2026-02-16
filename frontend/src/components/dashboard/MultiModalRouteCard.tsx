@@ -142,19 +142,19 @@ export default function MultiModalRouteCard({
       {/* Summary Stats */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="bg-background p-2 rounded border border-border">
-          <div className="text-xs text-muted-foreground">Duration</div>
+          <div className="text-xs text-slate-300">Duration</div>
           <div className="text-base font-semibold text-card-foreground">
             {formatDuration(route.total_duration_hours)}
           </div>
         </div>
         <div className="bg-background p-2 rounded border border-border">
-          <div className="text-xs text-muted-foreground">Distance</div>
+          <div className="text-xs text-slate-300">Distance</div>
           <div className="text-base font-semibold text-card-foreground">
             {Math.round(route.total_distance_km)}km
           </div>
         </div>
         <div className="bg-background p-2 rounded border border-border">
-          <div className="text-xs text-muted-foreground">Cost</div>
+          <div className="text-xs text-slate-300">Cost</div>
           <div className="text-base font-semibold text-card-foreground">
             {formatCost(route.total_cost_usd, "INR")}
           </div>
@@ -163,7 +163,7 @@ export default function MultiModalRouteCard({
 
       {/* Route Segments */}
       <div className="space-y-2">
-        <div className="text-xs font-medium text-muted-foreground mb-1">Route Breakdown:</div>
+        <div className="text-xs font-medium text-slate-300 mb-1">Route Breakdown:</div>
         {route.segments.map((segment, idx) => (
           <div key={idx}>
             <RouteSegmentItem 
@@ -223,10 +223,10 @@ function RouteSegmentItem({
         <div className="text-xs font-medium text-card-foreground mb-0.5">
           {getTransportModeDisplay(segment.transport_mode)}
         </div>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs text-slate-300">
           {getLocationTypeIcon(segment.origin.type)} {segment.origin.name} → {getLocationTypeIcon(segment.destination.type)} {segment.destination.name}
         </div>
-        <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+        <div className="flex gap-3 mt-1 text-xs text-slate-200">
           <span>📏 {Math.round(segment.distance_km)}km</span>
           <span>⏱️ {formatDuration(segment.duration_hours)}</span>
           <span>💰 {formatCost(segment.cost_usd, "INR")}</span>
@@ -240,3 +240,4 @@ function RouteSegmentItem({
     </div>
   );
 }
+

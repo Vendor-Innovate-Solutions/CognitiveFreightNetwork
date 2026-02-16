@@ -133,3 +133,121 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ERP dark-blue theme compatibility layer for legacy light utility classes */
+.erp-cfn-theme {
+  background: radial-gradient(circle at top, #142746 0%, #0b1426 55%, #08101f 100%);
+  color: #e2e8f0;
+}
+
+.erp-cfn-theme .bg-white {
+  background-color: #12233f !important;
+}
+
+.erp-cfn-theme .bg-gray-50,
+.erp-cfn-theme .bg-slate-50,
+.erp-cfn-theme .bg-blue-50,
+.erp-cfn-theme .bg-green-50,
+.erp-cfn-theme .bg-yellow-50 {
+  background-color: #0f1e36 !important;
+}
+
+.erp-cfn-theme .bg-gray-100,
+.erp-cfn-theme .bg-slate-100,
+.erp-cfn-theme .bg-blue-100 {
+  background-color: #182b49 !important;
+}
+
+.erp-cfn-theme .bg-gray-200 {
+  background-color: #243b61 !important;
+}
+
+.erp-cfn-theme .from-slate-50,
+.erp-cfn-theme .from-blue-50,
+.erp-cfn-theme .from-green-50,
+.erp-cfn-theme .from-yellow-50 {
+  --tw-gradient-from: #0f1e36 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(15 30 54 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.erp-cfn-theme .via-blue-50,
+.erp-cfn-theme .via-blue-100,
+.erp-cfn-theme .via-slate-100 {
+  --tw-gradient-stops: var(--tw-gradient-from), #162a48 var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+.erp-cfn-theme .to-blue-50,
+.erp-cfn-theme .to-green-50,
+.erp-cfn-theme .to-blue-100,
+.erp-cfn-theme .to-slate-100,
+.erp-cfn-theme .to-indigo-100 {
+  --tw-gradient-to: #0b1426 var(--tw-gradient-to-position) !important;
+}
+
+.erp-cfn-theme .border-gray-200,
+.erp-cfn-theme .border-slate-200,
+.erp-cfn-theme .border-blue-200,
+.erp-cfn-theme .border-blue-300,
+.erp-cfn-theme .border-gray-300 {
+  border-color: #2f4468 !important;
+}
+
+.erp-cfn-theme .text-gray-900,
+.erp-cfn-theme .text-slate-900,
+.erp-cfn-theme .text-blue-900 {
+  color: #f1f5f9 !important;
+}
+
+.erp-cfn-theme .text-gray-800,
+.erp-cfn-theme .text-slate-800,
+.erp-cfn-theme .text-blue-800 {
+  color: #dbeafe !important;
+}
+
+.erp-cfn-theme .text-gray-700,
+.erp-cfn-theme .text-slate-700,
+.erp-cfn-theme .text-blue-700,
+.erp-cfn-theme .text-yellow-900,
+.erp-cfn-theme .text-yellow-800,
+.erp-cfn-theme .text-yellow-700,
+.erp-cfn-theme .text-green-900,
+.erp-cfn-theme .text-green-800 {
+  color: #bfdbfe !important;
+}
+
+.erp-cfn-theme .text-gray-600,
+.erp-cfn-theme .text-slate-600,
+.erp-cfn-theme .text-gray-500 {
+  color: #93c5fd !important;
+}
+
+.erp-cfn-theme input,
+.erp-cfn-theme select,
+.erp-cfn-theme textarea {
+  background-color: #0b1b33 !important;
+  border-color: #2f4468 !important;
+  color: #e2e8f0 !important;
+}
+
+.erp-cfn-theme input::placeholder,
+.erp-cfn-theme textarea::placeholder {
+  color: #93c5fd !important;
+}
+
+.erp-cfn-theme code {
+  background-color: #0a1930;
+  color: #bfdbfe;
+}
+
+.erp-cfn-theme .bg-yellow-600 {
+  background-color: #2f6fe4 !important;
+}
+
+.erp-cfn-theme .hover\:bg-yellow-700:hover {
+  background-color: #245fcd !important;
+}
+
+.erp-cfn-theme .hover\:bg-gray-300:hover {
+  background-color: #2f4468 !important;
+}

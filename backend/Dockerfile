@@ -14,7 +14,7 @@ COPY uvicorn_start.sh ./uvicorn_start.sh
 RUN chmod +x ./uvicorn_start.sh
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8001
 
 # Run app
 CMD ["./uvicorn_start.sh"]
