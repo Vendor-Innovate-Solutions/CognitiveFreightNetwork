@@ -1,19 +1,17 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Standalone output for better deployment
-  output: 'standalone',
-  
+
   // Disable ESLint during build (fix errors later)
   eslint: {
     ignoreDuringBuilds: true,
   },
-  
+
   // Disable TypeScript errors during build
   typescript: {
     ignoreBuildErrors: true,
   },
-  
+
   // Image optimization settings
   images: {
     remotePatterns: [
@@ -23,10 +21,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  
+
   // Disable strict mode for production if needed
   reactStrictMode: true,
-  
+
   // Allow CORS for API routes
   async headers() {
     return [
